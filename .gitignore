@@ -1,0 +1,18 @@
+# Virtual Environment
+.venv/
+
+# Environment keys & secrets
+.env
+
+# Debug & output logs
+debug_last_run.log
+
+# Python cache
+__pycache__/
+*.pyc
+
+# macOS system files
+.DS_Store
+
+# IDE configuration
+.vscode/
