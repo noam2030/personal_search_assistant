@@ -3,7 +3,8 @@ import json
 from unittest.mock import patch
 from dotenv import load_dotenv
 
-from controller import run_task
+import db
+from controller import run_task, run_user_tasks
 from fetcher import fetch_html
 from cleaner import clean_html
 from extractor import extract_content
@@ -17,79 +18,117 @@ SAMPLE_MEETUP_HTML = """
 <html>
 <head>
     <title>Tech Events 2026</title>
-    <style>body { font-family: sans-serif; }</style>
 </head>
 <body>
-    <nav><a href="/">Home</a></nav>
     <main>
         <h1>Upcoming Tech Meetups</h1>
         <div class="event">
             <h2>Autonomous AI Agents Summit 2026</h2>
-            <p class="date">Date: November 12, 2026</p>
-            <p class="location">Location: San Francisco, CA & Online</p>
+            <p>Date: November 12, 2026</p>
+            <p>Location: San Francisco, CA & Online</p>
             <a href="https://example.com/events/agents-summit">Register Here</a>
-            <p>Join us for talks on LLM agents, tool use, and multi-agent coordination.</p>
-        </div>
-        <div class="event">
-            <h2>Intro to CSS Layouts</h2>
-            <p class="date">Date: October 5, 2026</p>
-            <p class="location">Location: Online</p>
-            <a href="https://example.com/events/css">Register Here</a>
         </div>
     </main>
-    <footer>Contact: info@example.com</footer>
 </body>
 </html>
 """
 
 
-def test_e2e_pipeline_mocked():
+def test_db_operations():
     """
-    End-to-End integration test using mocked HTTP fetching and mocked AI extraction
-    to verify full pipeline orchestration and debug log generation.
+    Tests SQLite database CRUD operations for user tasks.
     """
-    print("[E2E Test] Running mocked E2E pipeline test...")
-    url = "https://example.com/events"
-    goal = "find meetups about AI agents"
+    print("[E2E Test] Testing Database CRUD operations...")
+    user_id = "test_user_db"
+
+    # 1. Clean previous test tasks if any
+    existing = db.list_tasks(user_id)
+    for t in existing:
+        db.delete_task(t["id"], user_id)
+
+    # 2. Add Task
+    task = db.add_task(
+        user_id=user_id,
+        name="Test Meetups Task",
+        url="https://example.com/events",
+        goal="find meetups about AI agents",
+    )
+    assert task["id"] is not None
+    assert task["user_id"] == user_id
+    assert task["name"] == "Test Meetups Task"
+
+    # 3. List Tasks
+    tasks = db.list_tasks(user_id)
+    assert len(tasks) == 1
+    assert tasks[0]["id"] == task["id"]
+
+    # 4. Update Task Result
+    mock_result = json.dumps({"items": [{"title": "Agent Summit"}]})
+    db.update_task_result(
+        task_id=task["id"],
+        status="SUCCESS",
+        result_json=mock_result,
+        error=None,
+    )
+
+    updated = db.get_task(task["id"], user_id)
+    assert updated["last_status"] == "SUCCESS"
+    assert updated["last_result"] == mock_result
+
+    # 5. Delete Task
+    deleted = db.delete_task(task["id"], user_id)
+    assert deleted is True
+    assert len(db.list_tasks(user_id)) == 0
+
+    print("[E2E Test] Database CRUD tests passed!\n")
+
+
+def test_e2e_user_tasks_mocked():
+    """
+    Integration test verifying run_user_tasks orchestration with database persistence.
+    """
+    print("[E2E Test] Running mocked user tasks execution test...")
+    user_id = "test_user_run"
+
+    # Clean existing
+    for t in db.list_tasks(user_id):
+        db.delete_task(t["id"], user_id)
+
+    # Create task
+    task = db.add_task(
+        user_id=user_id,
+        name="Mock Event Agent Task",
+        url="https://example.com/events",
+        goal="find meetups about AI agents",
+    )
 
     mock_gemini_json = json.dumps({
         "items": [
             {
                 "title": "Autonomous AI Agents Summit 2026",
                 "date": "November 12, 2026",
-                "location": "San Francisco, CA & Online",
                 "link": "https://example.com/events/agents-summit",
-                "description": "Join us for talks on LLM agents, tool use, and multi-agent coordination."
             }
         ]
     })
 
     with patch("controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
         with patch("controller.extract_content", return_value=mock_gemini_json):
-            result = run_task(url=url, goal=goal)
+            results = run_user_tasks(user_id=user_id)
 
-            # Assert returned output matches expected JSON structure
-            assert result == mock_gemini_json
-            parsed = json.loads(result)
-            assert len(parsed["items"]) == 1
-            assert parsed["items"][0]["title"] == "Autonomous AI Agents Summit 2026"
+            assert len(results) == 1
+            res_task = results[0]
+            assert res_task["last_status"] == "SUCCESS"
+            assert res_task["last_result"] == mock_gemini_json
 
-            # Assert debug_last_run.log was created and populated
-            assert os.path.exists(DEBUG_FILE)
-            with open(DEBUG_FILE, "r", encoding="utf-8") as f:
-                log_content = f.read()
-
-            assert "STEP 1: RAW HTML CONTENT" in log_content
-            assert "Autonomous AI Agents Summit 2026" in log_content
-            assert "STEP 2: CLEANED TEXT CONTENT" in log_content
-            assert "STEP 3: GEMINI AI EXTRACTION RESULT" in log_content
-
-    print("[E2E Test] Mocked E2E pipeline test passed!\n")
+    # Clean up
+    db.delete_task(task["id"], user_id)
+    print("[E2E Test] Mocked user tasks execution test passed!\n")
 
 
 def test_e2e_live_api():
     """
-    Live End-to-End test that calls real HTTP fetcher and real Gemini API
+    Live End-to-End test calling real HTTP fetcher and real Gemini API
     if GEMINI_API_KEY is configured and network connection is available.
     """
     api_key = os.getenv("GEMINI_API_KEY")
@@ -106,7 +145,6 @@ def test_e2e_live_api():
         assert result is not None
         assert len(result) > 0
 
-        # Verify debug log was updated
         assert os.path.exists(DEBUG_FILE)
         with open(DEBUG_FILE, "r", encoding="utf-8") as f:
             log_content = f.read()
@@ -118,6 +156,7 @@ def test_e2e_live_api():
 
 
 if __name__ == "__main__":
-    test_e2e_pipeline_mocked()
+    test_db_operations()
+    test_e2e_user_tasks_mocked()
     test_e2e_live_api()
-    print("All E2E tests completed successfully!")
+    print("All Step 2 E2E tests completed successfully!")

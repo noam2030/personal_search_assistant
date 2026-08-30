@@ -4,6 +4,10 @@
 # Environment keys & secrets
 .env
 
+# Local SQLite databases
+*.db
+assistant.db
+
 # Debug & output logs
 debug_last_run.log
 
