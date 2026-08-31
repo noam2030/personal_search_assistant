@@ -50,7 +50,7 @@ def add_task(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
         )
         conn.commit()
         task_id = cursor.lastrowid
-        return get_task(task_id, user_id)
+        return get_task(task_id)
 
 
 def list_tasks(user_id: str) -> List[Dict[str, Any]]:
@@ -65,17 +65,12 @@ def list_tasks(user_id: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-def get_task(task_id: int, user_id: str = None) -> Optional[Dict[str, Any]]:
+def get_task(task_id: int) -> Optional[Dict[str, Any]]:
     """Fetches a single task by ID."""
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
-        if user_id:
-            cursor.execute(
-                "SELECT * FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id)
-            )
-        else:
-            cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -101,13 +96,16 @@ def update_task_result(
         conn.commit()
 
 
-def delete_task(task_id: int, user_id: str) -> bool:
-    """Deletes a task by ID for a user."""
+def delete_task(task_id: int, user_id: str = None) -> bool:
+    """Deletes a task by ID."""
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id)
-        )
+        if user_id:
+            cursor.execute(
+                "DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id)
+            )
+        else:
+            cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
         conn.commit()
         return cursor.rowcount > 0

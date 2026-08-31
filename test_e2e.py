@@ -4,7 +4,7 @@ from unittest.mock import patch
 from dotenv import load_dotenv
 
 import db
-from controller import run_task, run_user_tasks
+from controller import run_task, run_user_tasks, run_task_by_id
 from fetcher import fetch_html
 from cleaner import clean_html
 from extractor import extract_content
@@ -71,7 +71,7 @@ def test_db_operations():
         error=None,
     )
 
-    updated = db.get_task(task["id"], user_id)
+    updated = db.get_task(task["id"])
     assert updated["last_status"] == "SUCCESS"
     assert updated["last_result"] == mock_result
 
@@ -81,6 +81,48 @@ def test_db_operations():
     assert len(db.list_tasks(user_id)) == 0
 
     print("[E2E Test] Database CRUD tests passed!\n")
+
+
+def test_run_task_by_id_mocked():
+    """
+    Tests run_task_by_id function executing a single task by ID from the DB.
+    """
+    print("[E2E Test] Testing run_task_by_id execution...")
+    user_id = "test_user_by_id"
+
+    # Clean existing
+    for t in db.list_tasks(user_id):
+        db.delete_task(t["id"], user_id)
+
+    # Add task
+    task = db.add_task(
+        user_id=user_id,
+        name="Single Task By ID Test",
+        url="https://example.com/events",
+        goal="find meetups about AI agents",
+    )
+
+    mock_gemini_json = json.dumps({
+        "items": [
+            {
+                "title": "Autonomous AI Agents Summit 2026",
+                "date": "November 12, 2026",
+            }
+        ]
+    })
+
+    with patch("controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
+        with patch("controller.extract_content", return_value=mock_gemini_json):
+            res_task = run_task_by_id(task_id=task["id"])
+
+            assert res_task is not None
+            assert res_task["id"] == task["id"]
+            assert res_task["last_status"] == "SUCCESS"
+            assert res_task["last_result"] == mock_gemini_json
+
+    # Clean up
+    db.delete_task(task["id"], user_id)
+    print("[E2E Test] run_task_by_id test passed!\n")
 
 
 def test_e2e_user_tasks_mocked():
@@ -157,6 +199,7 @@ def test_e2e_live_api():
 
 if __name__ == "__main__":
     test_db_operations()
+    test_run_task_by_id_mocked()
     test_e2e_user_tasks_mocked()
     test_e2e_live_api()
-    print("All Step 2 E2E tests completed successfully!")
+    print("All E2E tests completed successfully!")

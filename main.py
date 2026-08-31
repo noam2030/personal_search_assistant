@@ -1,7 +1,7 @@
 import argparse
 import json
 import sys
-from controller import run_task, run_user_tasks
+from controller import run_task, run_user_tasks, run_task_by_id
 import db
 
 
@@ -26,6 +26,10 @@ def main():
     # Command: run-tasks
     run_tasks_parser = subparsers.add_parser("run-tasks", help="Run all persistent tasks for a user")
     run_tasks_parser.add_argument("--user", type=str, required=True, help="User ID (e.g. 'noam')")
+
+    # Command: run-task-by-id
+    run_task_id_parser = subparsers.add_parser("run-task-by-id", help="Run a single persistent task by task ID")
+    run_task_id_parser.add_argument("--id", type=int, required=True, help="Task ID to execute")
 
     # Command: show-results
     show_parser = subparsers.add_parser("show-results", help="Show saved latest results for a user")
@@ -62,6 +66,16 @@ def main():
 
     elif args.command == "run-tasks":
         run_user_tasks(user_id=args.user)
+
+    elif args.command == "run-task-by-id":
+        try:
+            updated_task = run_task_by_id(task_id=args.id)
+            if updated_task and updated_task["last_result"]:
+                print("=== EXTRACTION RESULT ===")
+                print(updated_task["last_result"])
+        except Exception as e:
+            print(f"Execution Failed: {e}", file=sys.stderr)
+            sys.exit(1)
 
     elif args.command == "show-results":
         tasks = db.list_tasks(user_id=args.user)
