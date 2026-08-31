@@ -71,7 +71,7 @@ def test_db_operations():
         error=None,
     )
 
-    updated = db.get_task(task["id"], user_id)
+    updated = db.get_task(task["id"])
     assert updated["last_status"] == "SUCCESS"
     assert updated["last_result"] == mock_result
 
