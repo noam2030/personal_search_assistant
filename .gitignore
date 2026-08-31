@@ -1,8 +1,14 @@
-# Virtual Environment
+# Python Virtual Environment
 .venv/
 
 # Environment keys & secrets
 .env
+*.env.local
+
+# Frontend Node.js dependencies & build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
 
 # Local SQLite databases
 *.db
