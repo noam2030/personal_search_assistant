@@ -13,7 +13,7 @@ def fetch_html(url: str, timeout: float = 15.0) -> str:
         ),
         "Accept-Language": "en-US,en;q=0.9",
     }
-    
+
     with httpx.Client(follow_redirects=True, timeout=timeout, headers=headers) as client:
         response = client.get(url)
         response.raise_for_status()

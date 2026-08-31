@@ -1,8 +1,8 @@
-from fetcher import fetch_html
-from cleaner import clean_html
-from extractor import extract_content
-from logger import write_debug_log
-import db
+from backend.fetcher import fetch_html
+from backend.cleaner import clean_html
+from backend.extractor import extract_content
+from backend.logger import write_debug_log
+from backend import db
 
 
 def run_task(url: str, goal: str) -> str:
