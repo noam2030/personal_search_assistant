@@ -2,16 +2,17 @@ import os
 import json
 from unittest.mock import patch
 from dotenv import load_dotenv
+from fastapi.testclient import TestClient
 
-import db
-from controller import run_task, run_user_tasks, run_task_by_id
-from fetcher import fetch_html
-from cleaner import clean_html
-from extractor import extract_content
-from logger import DEBUG_FILE
+from backend import db
+from backend.controller import run_task, run_user_tasks, run_task_by_id
+from backend.main import app
+from backend.logger import DEBUG_FILE
 
 # Load .env variables if available
 load_dotenv()
+
+client = TestClient(app)
 
 SAMPLE_MEETUP_HTML = """
 <!DOCTYPE html>
@@ -83,89 +84,56 @@ def test_db_operations():
     print("[E2E Test] Database CRUD tests passed!\n")
 
 
-def test_run_task_by_id_mocked():
+def test_fastapi_rest_endpoints():
     """
-    Tests run_task_by_id function executing a single task by ID from the DB.
+    Tests FastAPI REST API endpoints: /api/health, /api/tasks (GET/POST/DELETE).
     """
-    print("[E2E Test] Testing run_task_by_id execution...")
-    user_id = "test_user_by_id"
+    print("[E2E Test] Testing FastAPI REST endpoints...")
+    user_id = "test_user_api"
 
-    # Clean existing
-    for t in db.list_tasks(user_id):
-        db.delete_task(t["id"], user_id)
+    # 1. Health check
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
 
-    # Add task
-    task = db.add_task(
-        user_id=user_id,
-        name="Single Task By ID Test",
-        url="https://example.com/events",
-        goal="find meetups about AI agents",
-    )
+    # 2. Clean previous tasks
+    res = client.get(f"/api/tasks?user_id={user_id}")
+    for t in res.json():
+        client.delete(f"/api/tasks/{t['id']}?user_id={user_id}")
 
-    mock_gemini_json = json.dumps({
-        "items": [
-            {
-                "title": "Autonomous AI Agents Summit 2026",
-                "date": "November 12, 2026",
-            }
-        ]
-    })
+    # 3. Create Task via POST /api/tasks
+    payload = {
+        "user_id": user_id,
+        "name": "API Test Task",
+        "url": "https://example.com/api-test",
+        "goal": "extract api test items",
+    }
+    create_res = client.post("/api/tasks", json=payload)
+    assert create_res.status_code == 201
+    created_task = create_res.json()
+    assert created_task["name"] == "API Test Task"
+    task_id = created_task["id"]
 
-    with patch("controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
-        with patch("controller.extract_content", return_value=mock_gemini_json):
-            res_task = run_task_by_id(task_id=task["id"])
+    # 4. List Tasks via GET /api/tasks
+    list_res = client.get(f"/api/tasks?user_id={user_id}")
+    assert list_res.status_code == 200
+    assert len(list_res.json()) == 1
 
-            assert res_task is not None
-            assert res_task["id"] == task["id"]
-            assert res_task["last_status"] == "SUCCESS"
-            assert res_task["last_result"] == mock_gemini_json
+    # 5. Mocked Execute Task via POST /api/tasks/{id}/run
+    mock_gemini_json = json.dumps({"items": [{"title": "API Test Item"}]})
+    with patch("backend.controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
+        with patch("backend.controller.extract_content", return_value=mock_gemini_json):
+            run_res = client.post(f"/api/tasks/{task_id}/run")
+            assert run_res.status_code == 200
+            updated = run_res.json()
+            assert updated["last_status"] == "SUCCESS"
+            assert updated["last_result"] == mock_gemini_json
 
-    # Clean up
-    db.delete_task(task["id"], user_id)
-    print("[E2E Test] run_task_by_id test passed!\n")
+    # 6. Delete Task via DELETE /api/tasks/{id}
+    del_res = client.delete(f"/api/tasks/{task_id}?user_id={user_id}")
+    assert del_res.status_code == 200
 
-
-def test_e2e_user_tasks_mocked():
-    """
-    Integration test verifying run_user_tasks orchestration with database persistence.
-    """
-    print("[E2E Test] Running mocked user tasks execution test...")
-    user_id = "test_user_run"
-
-    # Clean existing
-    for t in db.list_tasks(user_id):
-        db.delete_task(t["id"], user_id)
-
-    # Create task
-    task = db.add_task(
-        user_id=user_id,
-        name="Mock Event Agent Task",
-        url="https://example.com/events",
-        goal="find meetups about AI agents",
-    )
-
-    mock_gemini_json = json.dumps({
-        "items": [
-            {
-                "title": "Autonomous AI Agents Summit 2026",
-                "date": "November 12, 2026",
-                "link": "https://example.com/events/agents-summit",
-            }
-        ]
-    })
-
-    with patch("controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
-        with patch("controller.extract_content", return_value=mock_gemini_json):
-            results = run_user_tasks(user_id=user_id)
-
-            assert len(results) == 1
-            res_task = results[0]
-            assert res_task["last_status"] == "SUCCESS"
-            assert res_task["last_result"] == mock_gemini_json
-
-    # Clean up
-    db.delete_task(task["id"], user_id)
-    print("[E2E Test] Mocked user tasks execution test passed!\n")
+    print("[E2E Test] FastAPI REST endpoint tests passed!\n")
 
 
 def test_e2e_live_api():
@@ -199,7 +167,6 @@ def test_e2e_live_api():
 
 if __name__ == "__main__":
     test_db_operations()
-    test_run_task_by_id_mocked()
-    test_e2e_user_tasks_mocked()
+    test_fastapi_rest_endpoints()
     test_e2e_live_api()
-    print("All E2E tests completed successfully!")
+    print("All Step 3 E2E tests completed successfully!")

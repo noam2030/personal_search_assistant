@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-DB_FILE = "assistant.db"
+DB_FILE = os.getenv("DATABASE_PATH", "assistant.db")
 
 
 def get_connection():

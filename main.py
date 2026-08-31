@@ -1,8 +1,8 @@
 import argparse
 import json
 import sys
-from controller import run_task, run_user_tasks, run_task_by_id
-import db
+from backend.controller import run_task, run_user_tasks, run_task_by_id
+from backend import db
 
 
 def main():

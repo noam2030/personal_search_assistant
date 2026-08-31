@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Personal Search Assistant</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Personal Search Assistant</h1>
+      <div class="user-selector">
+        <label for="userIdInput" style="font-size: 0.85rem; color: var(--text-muted);">User:</label>
+        <input type="text" id="userIdInput" value="noam" style="width: 120px;">
+        <button id="refreshTasksBtn" class="btn-secondary">Refresh</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Create Task Form -->
+      <div class="card">
+        <h2 class="card-title">Create New Task</h2>
+        <form id="createTaskForm">
+          <div class="form-group">
+            <label for="taskName">Task Name</label>
+            <input type="text" id="taskName" placeholder="e.g. Android Developer Jobs" required>
+          </div>
+          <div class="form-group">
+            <label for="taskUrl">Target URL</label>
+            <input type="url" id="taskUrl" placeholder="https://example.com/careers" required>
+          </div>
+          <div class="form-group">
+            <label for="taskGoal">Extraction Goal</label>
+            <textarea id="taskGoal" rows="3" placeholder="e.g. Find Remote Android Engineer positions with title and location" required></textarea>
+          </div>
+          <button type="submit" id="submitTaskBtn">Create Task</button>
+        </form>
+      </div>
+
+      <!-- Task List View -->
+      <div class="card">
+        <h2 class="card-title">Your Tasks</h2>
+        <div id="taskList" class="task-list">
+          <p style="color: var(--text-muted);">Loading tasks...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
