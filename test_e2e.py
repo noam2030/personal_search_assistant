@@ -113,7 +113,7 @@ def test_run_task_by_id_mocked():
 
     with patch("controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
         with patch("controller.extract_content", return_value=mock_gemini_json):
-            res_task = run_task_by_id(task_id=task["id"], user_id=user_id)
+            res_task = run_task_by_id(task_id=task["id"])
 
             assert res_task is not None
             assert res_task["id"] == task["id"]

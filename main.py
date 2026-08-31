@@ -30,7 +30,6 @@ def main():
     # Command: run-task-by-id
     run_task_id_parser = subparsers.add_parser("run-task-by-id", help="Run a single persistent task by task ID")
     run_task_id_parser.add_argument("--id", type=int, required=True, help="Task ID to execute")
-    run_task_id_parser.add_argument("--user", type=str, help="Optional User ID filter")
 
     # Command: show-results
     show_parser = subparsers.add_parser("show-results", help="Show saved latest results for a user")
@@ -70,7 +69,7 @@ def main():
 
     elif args.command == "run-task-by-id":
         try:
-            updated_task = run_task_by_id(task_id=args.id, user_id=args.user)
+            updated_task = run_task_by_id(task_id=args.id)
             if updated_task and updated_task["last_result"]:
                 print("=== EXTRACTION RESULT ===")
                 print(updated_task["last_result"])

@@ -45,13 +45,13 @@ def run_task(url: str, goal: str) -> str:
         raise RuntimeError(error_msg) from e
 
 
-def run_task_by_id(task_id: int, user_id: str = None) -> dict:
+def run_task_by_id(task_id: int) -> dict:
     """
-    Fetches a single task by ID from the database, executes its extraction pipeline,
+    Fetches a single task by task_id from the database, executes its extraction pipeline,
     updates the database with the latest result, and returns the updated task dict.
     Designed for Web API / UI execution triggers.
     """
-    task = db.get_task(task_id, user_id)
+    task = db.get_task(task_id)
     if not task:
         raise ValueError(f"Task with ID {task_id} not found.")
 
@@ -75,7 +75,7 @@ def run_task_by_id(task_id: int, user_id: str = None) -> dict:
         )
         print(f"✗ Task '{task['name']}' failed: {error_msg}\n")
 
-    return db.get_task(task_id, user_id)
+    return db.get_task(task_id)
 
 
 def run_user_tasks(user_id: str) -> list[dict]:
@@ -93,7 +93,7 @@ def run_user_tasks(user_id: str) -> list[dict]:
 
     for idx, task in enumerate(tasks, 1):
         print(f"[Task {idx}/{len(tasks)}]")
-        updated_task = run_task_by_id(task_id=task["id"], user_id=user_id)
+        updated_task = run_task_by_id(task_id=task["id"])
         if updated_task:
             results.append(updated_task)
 
