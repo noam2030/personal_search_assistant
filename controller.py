@@ -45,10 +45,43 @@ def run_task(url: str, goal: str) -> str:
         raise RuntimeError(error_msg) from e
 
 
+def run_task_by_id(task_id: int, user_id: str = None) -> dict:
+    """
+    Fetches a single task by ID from the database, executes its extraction pipeline,
+    updates the database with the latest result, and returns the updated task dict.
+    Designed for Web API / UI execution triggers.
+    """
+    task = db.get_task(task_id, user_id)
+    if not task:
+        raise ValueError(f"Task with ID {task_id} not found.")
+
+    print(f"--- Running Task [{task['id']}] '{task['name']}' ---")
+    try:
+        res_text = run_task(url=task["url"], goal=task["goal"])
+        db.update_task_result(
+            task_id=task["id"],
+            status="SUCCESS",
+            result_json=res_text,
+            error=None,
+        )
+        print(f"✓ Task '{task['name']}' completed successfully.\n")
+    except Exception as e:
+        error_msg = str(e)
+        db.update_task_result(
+            task_id=task["id"],
+            status="FAILED",
+            result_json=None,
+            error=error_msg,
+        )
+        print(f"✗ Task '{task['name']}' failed: {error_msg}\n")
+
+    return db.get_task(task_id, user_id)
+
+
 def run_user_tasks(user_id: str) -> list[dict]:
     """
-    Fetches all persistent tasks for a user, executes each task,
-    and updates the database with the latest result for each task.
+    Fetches all persistent tasks for a user, executes each task via run_task_by_id,
+    and returns the list of updated tasks with latest results.
     """
     tasks = db.list_tasks(user_id)
     if not tasks:
@@ -59,28 +92,8 @@ def run_user_tasks(user_id: str) -> list[dict]:
     results = []
 
     for idx, task in enumerate(tasks, 1):
-        print(f"--- [Task {idx}/{len(tasks)}] {task['name']} (ID: {task['id']}) ---")
-        try:
-            res_text = run_task(url=task["url"], goal=task["goal"])
-            db.update_task_result(
-                task_id=task["id"],
-                status="SUCCESS",
-                result_json=res_text,
-                error=None,
-            )
-            print(f"✓ Task '{task['name']}' completed successfully.\n")
-        except Exception as e:
-            error_msg = str(e)
-            db.update_task_result(
-                task_id=task["id"],
-                status="FAILED",
-                result_json=None,
-                error=error_msg,
-            )
-            print(f"✗ Task '{task['name']}' failed: {error_msg}\n")
-
-        # Refresh task from DB to get updated fields
-        updated_task = db.get_task(task["id"], user_id)
+        print(f"[Task {idx}/{len(tasks)}]")
+        updated_task = run_task_by_id(task_id=task["id"], user_id=user_id)
         if updated_task:
             results.append(updated_task)
 
