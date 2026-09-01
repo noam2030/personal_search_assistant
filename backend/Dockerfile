@@ -8,7 +8,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application code
-COPY backend/ ./backend/
+COPY . ./backend/
 
 # Set environment variables for Cloud Run
 ENV PORT=8080
