@@ -8,15 +8,8 @@ try:
 except ImportError:
     HAS_FIRESTORE = False
 
-try:
-    from google.cloud import storage
-    HAS_GCS = True
-except ImportError:
-    HAS_GCS = False
-
 COLLECTION_NAME = "tasks"
-GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
-GCP_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "plenary-line-507307-g7")
+GCP_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 
 
 def get_firestore_client():
@@ -24,35 +17,22 @@ def get_firestore_client():
     if not HAS_FIRESTORE:
         return None
     try:
-        return firestore.Client(project=GCP_PROJECT)
+        return firestore.Client(project=GCP_PROJECT) if GCP_PROJECT else firestore.Client()
     except Exception as e:
         print(f"[Cloud DB Warning] Firestore client initialization skipped: {e}")
         return None
 
 
-def get_gcs_bucket():
-    """Returns a GCS bucket instance if GCS_BUCKET_NAME is configured."""
-    if not HAS_GCS or not GCS_BUCKET_NAME:
-        return None
-    try:
-        client = storage.Client(project=GCP_PROJECT)
-        return client.bucket(GCS_BUCKET_NAME)
-    except Exception as e:
-        print(f"[Cloud DB Warning] GCS bucket initialization skipped: {e}")
-        return None
-
-
 # -----------------------------------------------------------------------------
-# Firestore / GCS Storage Operations
+# Firestore Cloud Database Operations
 # -----------------------------------------------------------------------------
 
 def add_task_cloud(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
-    """Adds a task to Firestore / GCS cloud storage."""
+    """Adds a task to Firestore cloud database."""
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db = get_firestore_client()
 
     if db:
-        # Generates auto-increment numeric ID based on timestamp/counter
         doc_ref = db.collection(COLLECTION_NAME).document()
         task_data = {
             "id": int(datetime.now().timestamp() * 1000) % 2147483647,
