@@ -10,12 +10,10 @@ DB_FILE = os.getenv("DATABASE_PATH", "assistant.db")
 def is_cloud_available() -> bool:
     """
     Checks if Cloud DB (Firestore) is active.
-    Automatically active when running in Google Cloud Run (K_SERVICE is set)
-    or when ENABLE_CLOUD_DB=true is explicitly configured.
+    Automatically active when running in Google Cloud Run (K_SERVICE is set).
     """
     is_in_cloud_run = os.getenv("K_SERVICE") is not None
-    is_explicitly_enabled = os.getenv("ENABLE_CLOUD_DB", "false").lower() in ("true", "1")
-    return (is_in_cloud_run or is_explicitly_enabled) and cloud_db.get_firestore_client() is not None
+    return is_in_cloud_run and cloud_db.get_firestore_client() is not None
 
 
 def get_connection():
