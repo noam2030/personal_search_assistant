@@ -31,11 +31,11 @@
     </div>
   </div>
 
-  <!-- Create Task Modal Overlay -->
+  <!-- Create / Edit Task Modal Overlay -->
   <div id="taskModal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 class="modal-title">Create New Task</h2>
+        <h2 id="modalTitle" class="modal-title">Create New Task</h2>
         <button id="closeTaskModalBtn" class="modal-close-btn">&times;</button>
       </div>
       <form id="createTaskForm">
@@ -52,7 +52,7 @@
           <textarea id="taskGoal" rows="3" placeholder="e.g. Find Remote Android Engineer positions with title and location" required></textarea>
         </div>
         <div class="modal-actions">
-          <button type="submit" id="submitTaskBtn">Create Task</button>
+          <button type="submit" id="submitTaskBtn"><span id="submitTaskBtnText">Create Task</span></button>
           <button type="button" id="cancelTaskModalBtn" class="btn-secondary">Cancel</button>
         </div>
       </form>

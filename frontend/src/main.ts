@@ -8,6 +8,8 @@ const openCreateTaskModalBtn = document.getElementById('openCreateTaskModalBtn')
 const closeTaskModalBtn = document.getElementById('closeTaskModalBtn') as HTMLButtonElement;
 const cancelTaskModalBtn = document.getElementById('cancelTaskModalBtn') as HTMLButtonElement;
 const taskModal = document.getElementById('taskModal') as HTMLDivElement;
+const modalTitle = document.getElementById('modalTitle') as HTMLHeadingElement;
+const submitTaskBtnText = document.getElementById('submitTaskBtnText') as HTMLSpanElement;
 
 const createTaskForm = document.getElementById('createTaskForm') as HTMLFormElement;
 const taskNameInput = document.getElementById('taskName') as HTMLInputElement;
@@ -15,18 +17,33 @@ const taskUrlInput = document.getElementById('taskUrl') as HTMLInputElement;
 const taskGoalInput = document.getElementById('taskGoal') as HTMLTextAreaElement;
 const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
 
-// Running, Edit & View Mode State
+// Running, Editing & View Mode State
 const runningTasks: Record<number, boolean> = {};
-const editingTasks: Record<number, boolean> = {};
 const resultViewModes: Record<number, 'visual' | 'raw'> = {};
+let editingTaskId: number | null = null;
 
-function openModal(): void {
+function openModal(mode: 'create' | 'edit', task?: Task): void {
+  if (mode === 'edit' && task) {
+    editingTaskId = task.id;
+    modalTitle.textContent = `Edit Task: ${task.name}`;
+    submitTaskBtnText.textContent = '💾 Save Changes';
+    taskNameInput.value = task.name;
+    taskUrlInput.value = task.url;
+    taskGoalInput.value = task.goal;
+  } else {
+    editingTaskId = null;
+    modalTitle.textContent = 'Create New Task';
+    submitTaskBtnText.textContent = 'Create Task';
+    createTaskForm.reset();
+  }
+
   taskModal.classList.remove('hidden');
   taskNameInput.focus();
 }
 
 function closeModal(): void {
   taskModal.classList.add('hidden');
+  editingTaskId = null;
   createTaskForm.reset();
 }
 
@@ -54,7 +71,6 @@ function renderTaskList(tasks: Task[]): void {
     card.className = 'task-card';
 
     const isRunning = !!runningTasks[task.id];
-    const isEditing = !!editingTasks[task.id];
     const status = isRunning ? 'RUNNING' : (task.last_status || 'Pending');
     const badgeClass = isRunning
       ? 'badge-pending'
@@ -66,111 +82,52 @@ function renderTaskList(tasks: Task[]): void {
 
     const viewMode = resultViewModes[task.id] || 'visual';
 
-    if (isEditing) {
-      card.innerHTML = `
-        <div class="task-header">
-          <span class="task-name" style="color: #60a5fa;">✏️ Editing Task #${task.id}</span>
-        </div>
-        <div class="form-group" style="margin-top: 0.8rem;">
-          <label>Task Name</label>
-          <input type="text" class="edit-name-input" value="${escapeHtml(task.name)}" required>
-        </div>
-        <div class="form-group">
-          <label>Target URL</label>
-          <input type="url" class="edit-url-input" value="${escapeHtml(task.url)}" required>
-        </div>
-        <div class="form-group">
-          <label>Extraction Goal</label>
-          <textarea class="edit-goal-input" rows="2" required>${escapeHtml(task.goal)}</textarea>
-        </div>
-        <div class="task-actions">
-          <button class="save-edit-btn" data-id="${task.id}">💾 Save Changes</button>
-          <button class="btn-secondary cancel-edit-btn" data-id="${task.id}">Cancel</button>
-        </div>
-      `;
+    card.innerHTML = `
+      <div class="task-header">
+        <span class="task-name">${escapeHtml(task.name)}</span>
+        <span class="badge ${badgeClass}">${status}</span>
+      </div>
+      <div class="task-detail"><strong>URL:</strong> <a href="${escapeHtml(task.url)}" target="_blank" rel="noopener">${escapeHtml(task.url)}</a></div>
+      <div class="task-detail"><strong>Goal:</strong> ${escapeHtml(task.goal)}</div>
+      <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
+      
+      <div class="task-actions">
+        <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
+          ${isRunning ? '<div class="spinner"></div> Running...' : '▶ Run Task'}
+        </button>
+        <button class="btn-secondary edit-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>✏️ Edit</button>
+        <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
+      </div>
 
-      const saveBtn = card.querySelector('.save-edit-btn') as HTMLButtonElement;
-      saveBtn.addEventListener('click', () => handleSaveEdit(task.id, card));
+      ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
+      ${task.last_result ? renderResultSection(task.last_result, viewMode) : ''}
+    `;
 
-      const cancelBtn = card.querySelector('.cancel-edit-btn') as HTMLButtonElement;
-      cancelBtn.addEventListener('click', () => {
-        delete editingTasks[task.id];
+    const runBtn = card.querySelector('.run-btn') as HTMLButtonElement;
+    runBtn.addEventListener('click', () => handleRunTask(task.id));
+
+    const editBtn = card.querySelector('.edit-btn') as HTMLButtonElement;
+    editBtn.addEventListener('click', () => openModal('edit', task));
+
+    const deleteBtn = card.querySelector('.delete-btn') as HTMLButtonElement;
+    deleteBtn.addEventListener('click', () => handleDeleteTask(task.id));
+
+    const visualToggle = card.querySelector('.toggle-visual') as HTMLButtonElement | null;
+    const rawToggle = card.querySelector('.toggle-raw') as HTMLButtonElement | null;
+
+    if (visualToggle && rawToggle) {
+      visualToggle.addEventListener('click', () => {
+        resultViewModes[task.id] = 'visual';
         loadTasks();
       });
-    } else {
-      card.innerHTML = `
-        <div class="task-header">
-          <span class="task-name">${escapeHtml(task.name)}</span>
-          <span class="badge ${badgeClass}">${status}</span>
-        </div>
-        <div class="task-detail"><strong>URL:</strong> <a href="${escapeHtml(task.url)}" target="_blank" rel="noopener">${escapeHtml(task.url)}</a></div>
-        <div class="task-detail"><strong>Goal:</strong> ${escapeHtml(task.goal)}</div>
-        <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
-        
-        <div class="task-actions">
-          <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
-            ${isRunning ? '<div class="spinner"></div> Running...' : '▶ Run Task'}
-          </button>
-          <button class="btn-secondary edit-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>✏️ Edit</button>
-          <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
-        </div>
-
-        ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
-        ${task.last_result ? renderResultSection(task.last_result, viewMode) : ''}
-      `;
-
-      const runBtn = card.querySelector('.run-btn') as HTMLButtonElement;
-      runBtn.addEventListener('click', () => handleRunTask(task.id));
-
-      const editBtn = card.querySelector('.edit-btn') as HTMLButtonElement;
-      editBtn.addEventListener('click', () => {
-        editingTasks[task.id] = true;
+      rawToggle.addEventListener('click', () => {
+        resultViewModes[task.id] = 'raw';
         loadTasks();
       });
-
-      const deleteBtn = card.querySelector('.delete-btn') as HTMLButtonElement;
-      deleteBtn.addEventListener('click', () => handleDeleteTask(task.id));
-
-      const visualToggle = card.querySelector('.toggle-visual') as HTMLButtonElement | null;
-      const rawToggle = card.querySelector('.toggle-raw') as HTMLButtonElement | null;
-
-      if (visualToggle && rawToggle) {
-        visualToggle.addEventListener('click', () => {
-          resultViewModes[task.id] = 'visual';
-          loadTasks();
-        });
-        rawToggle.addEventListener('click', () => {
-          resultViewModes[task.id] = 'raw';
-          loadTasks();
-        });
-      }
     }
 
     taskListContainer.appendChild(card);
   });
-}
-
-async function handleSaveEdit(taskId: number, card: HTMLElement): Promise<void> {
-  const nameInput = card.querySelector('.edit-name-input') as HTMLInputElement;
-  const urlInput = card.querySelector('.edit-url-input') as HTMLInputElement;
-  const goalInput = card.querySelector('.edit-goal-input') as HTMLTextAreaElement;
-
-  const name = nameInput.value.trim();
-  const url = urlInput.value.trim();
-  const goal = goalInput.value.trim();
-
-  if (!name || !url || !goal) {
-    alert('Please fill out all fields (Name, URL, and Goal).');
-    return;
-  }
-
-  try {
-    await updateTaskById(taskId, { name, url, goal });
-    delete editingTasks[taskId];
-    await loadTasks();
-  } catch (error) {
-    alert(`Failed to update task: ${(error as Error).message}`);
-  }
 }
 
 function renderResultSection(rawResult: string, viewMode: 'visual' | 'raw'): string {
@@ -287,7 +244,7 @@ async function handleDeleteTask(taskId: number): Promise<void> {
 }
 
 // Modal Event Listeners
-openCreateTaskModalBtn.addEventListener('click', openModal);
+openCreateTaskModalBtn.addEventListener('click', () => openModal('create'));
 closeTaskModalBtn.addEventListener('click', closeModal);
 cancelTaskModalBtn.addEventListener('click', closeModal);
 
@@ -314,11 +271,17 @@ createTaskForm.addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
 
   try {
-    await createTask({ user_id: userId, name, url, goal });
+    if (editingTaskId !== null) {
+      // Editing existing task
+      await updateTaskById(editingTaskId, { name, url, goal });
+    } else {
+      // Creating new task
+      await createTask({ user_id: userId, name, url, goal });
+    }
     closeModal();
     await loadTasks();
   } catch (error) {
-    alert(`Failed to create task: ${(error as Error).message}`);
+    alert(`Failed to save task: ${(error as Error).message}`);
   } finally {
     submitBtn.disabled = false;
   }
