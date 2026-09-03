@@ -10,41 +10,52 @@
   <div class="container">
     <header>
       <h1>AI Personal Search Assistant</h1>
-      <div class="user-selector">
-        <label for="userIdInput" style="font-size: 0.85rem; color: var(--text-muted);">User:</label>
-        <input type="text" id="userIdInput" value="noam" style="width: 120px;">
-        <button id="refreshTasksBtn" class="btn-secondary">Refresh</button>
+      <div class="header-actions">
+        <button id="openCreateTaskModalBtn" class="btn-primary-action">➕ New Task</button>
+        <div class="user-selector">
+          <label for="userIdInput" style="font-size: 0.85rem; color: var(--text-muted);">User:</label>
+          <input type="text" id="userIdInput" value="noam" style="width: 120px;">
+          <button id="refreshTasksBtn" class="btn-secondary">Refresh</button>
+        </div>
       </div>
     </header>
 
-    <div class="grid">
-      <!-- Create Task Form -->
-      <div class="card">
-        <h2 class="card-title">Create New Task</h2>
-        <form id="createTaskForm">
-          <div class="form-group">
-            <label for="taskName">Task Name</label>
-            <input type="text" id="taskName" placeholder="e.g. Android Developer Jobs" required>
-          </div>
-          <div class="form-group">
-            <label for="taskUrl">Target URL</label>
-            <input type="url" id="taskUrl" placeholder="https://example.com/careers" required>
-          </div>
-          <div class="form-group">
-            <label for="taskGoal">Extraction Goal</label>
-            <textarea id="taskGoal" rows="3" placeholder="e.g. Find Remote Android Engineer positions with title and location" required></textarea>
-          </div>
-          <button type="submit" id="submitTaskBtn">Create Task</button>
-        </form>
+    <!-- Task List View (Full Width) -->
+    <div class="card full-width-card">
+      <div class="tasks-header-row">
+        <h2 class="card-title" style="margin-bottom: 0;">Your Tasks</h2>
       </div>
+      <div id="taskList" class="task-list">
+        <p style="color: var(--text-muted);">Loading tasks...</p>
+      </div>
+    </div>
+  </div>
 
-      <!-- Task List View -->
-      <div class="card">
-        <h2 class="card-title">Your Tasks</h2>
-        <div id="taskList" class="task-list">
-          <p style="color: var(--text-muted);">Loading tasks...</p>
-        </div>
+  <!-- Create Task Modal Overlay -->
+  <div id="taskModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New Task</h2>
+        <button id="closeTaskModalBtn" class="modal-close-btn">&times;</button>
       </div>
+      <form id="createTaskForm">
+        <div class="form-group">
+          <label for="taskName">Task Name</label>
+          <input type="text" id="taskName" placeholder="e.g. Android Developer Jobs" required>
+        </div>
+        <div class="form-group">
+          <label for="taskUrl">Target URL</label>
+          <input type="url" id="taskUrl" placeholder="https://example.com/careers" required>
+        </div>
+        <div class="form-group">
+          <label for="taskGoal">Extraction Goal</label>
+          <textarea id="taskGoal" rows="3" placeholder="e.g. Find Remote Android Engineer positions with title and location" required></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" id="submitTaskBtn">Create Task</button>
+          <button type="button" id="cancelTaskModalBtn" class="btn-secondary">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 
