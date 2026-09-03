@@ -4,6 +4,11 @@ import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById
 // DOM Element References
 const userIdInput = document.getElementById('userIdInput') as HTMLInputElement;
 const refreshTasksBtn = document.getElementById('refreshTasksBtn') as HTMLButtonElement;
+const openCreateTaskModalBtn = document.getElementById('openCreateTaskModalBtn') as HTMLButtonElement;
+const closeTaskModalBtn = document.getElementById('closeTaskModalBtn') as HTMLButtonElement;
+const cancelTaskModalBtn = document.getElementById('cancelTaskModalBtn') as HTMLButtonElement;
+const taskModal = document.getElementById('taskModal') as HTMLDivElement;
+
 const createTaskForm = document.getElementById('createTaskForm') as HTMLFormElement;
 const taskNameInput = document.getElementById('taskName') as HTMLInputElement;
 const taskUrlInput = document.getElementById('taskUrl') as HTMLInputElement;
@@ -14,6 +19,16 @@ const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
 const runningTasks: Record<number, boolean> = {};
 const editingTasks: Record<number, boolean> = {};
 const resultViewModes: Record<number, 'visual' | 'raw'> = {};
+
+function openModal(): void {
+  taskModal.classList.remove('hidden');
+  taskNameInput.focus();
+}
+
+function closeModal(): void {
+  taskModal.classList.add('hidden');
+  createTaskForm.reset();
+}
 
 async function loadTasks(): Promise<void> {
   const userId = userIdInput.value.trim() || 'noam';
@@ -29,7 +44,7 @@ async function loadTasks(): Promise<void> {
 
 function renderTaskList(tasks: Task[]): void {
   if (tasks.length === 0) {
-    taskListContainer.innerHTML = '<p style="color: var(--text-muted);">No persistent tasks found. Create your first task on the left!</p>';
+    taskListContainer.innerHTML = '<p style="color: var(--text-muted);">No persistent tasks found. Click "➕ New Task" above to create your first task!</p>';
     return;
   }
 
@@ -271,6 +286,21 @@ async function handleDeleteTask(taskId: number): Promise<void> {
   }
 }
 
+// Modal Event Listeners
+openCreateTaskModalBtn.addEventListener('click', openModal);
+closeTaskModalBtn.addEventListener('click', closeModal);
+cancelTaskModalBtn.addEventListener('click', closeModal);
+
+taskModal.addEventListener('click', (e) => {
+  if (e.target === taskModal) closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !taskModal.classList.contains('hidden')) {
+    closeModal();
+  }
+});
+
 createTaskForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const userId = userIdInput.value.trim() || 'noam';
@@ -285,7 +315,7 @@ createTaskForm.addEventListener('submit', async (e) => {
 
   try {
     await createTask({ user_id: userId, name, url, goal });
-    createTaskForm.reset();
+    closeModal();
     await loadTasks();
   } catch (error) {
     alert(`Failed to create task: ${(error as Error).message}`);
