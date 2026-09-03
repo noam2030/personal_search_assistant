@@ -19,3 +19,9 @@ export interface CreateTaskPayload {
   url: string;
   goal: string;
 }
+
+export interface UpdateTaskPayload {
+  name?: string;
+  url?: string;
+  goal?: string;
+}

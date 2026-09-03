@@ -96,6 +96,35 @@ def get_task(task_id: int) -> Optional[Dict[str, Any]]:
         return dict(row) if row else None
 
 
+def update_task_details(
+    task_id: int,
+    name: str,
+    url: str,
+    goal: str,
+) -> Optional[Dict[str, Any]]:
+    """Updates task name, url, and goal in database."""
+    if is_cloud_available():
+        return cloud_db.update_task_details_cloud(
+            task_id=task_id, name=name, url=url, goal=goal
+        )
+
+    init_db()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE tasks
+            SET name = ?, url = ?, goal = ?
+            WHERE id = ?
+            """,
+            (name, url, goal, task_id),
+        )
+        conn.commit()
+        if cursor.rowcount > 0:
+            return get_task(task_id)
+        return None
+
+
 def update_task_result(
     task_id: int,
     status: str,
