@@ -63,7 +63,17 @@ def test_db_operations():
     assert len(tasks) == 1
     assert tasks[0]["id"] == task["id"]
 
-    # 4. Update Task Result
+    # 4. Update Task Details
+    updated_detail = db.update_task_details(
+        task_id=task["id"],
+        name="Updated Meetups Task",
+        url="https://example.com/events-v2",
+        goal="find AI events v2",
+    )
+    assert updated_detail["name"] == "Updated Meetups Task"
+    assert updated_detail["goal"] == "find AI events v2"
+
+    # 5. Update Task Result
     mock_result = json.dumps({"items": [{"title": "Agent Summit"}]})
     db.update_task_result(
         task_id=task["id"],
@@ -76,7 +86,7 @@ def test_db_operations():
     assert updated["last_status"] == "SUCCESS"
     assert updated["last_result"] == mock_result
 
-    # 5. Delete Task
+    # 6. Delete Task
     deleted = db.delete_task(task["id"], user_id)
     assert deleted is True
     assert len(db.list_tasks(user_id)) == 0
@@ -86,7 +96,7 @@ def test_db_operations():
 
 def test_fastapi_rest_endpoints():
     """
-    Tests FastAPI REST API endpoints: /api/health, /api/tasks (GET/POST/DELETE).
+    Tests FastAPI REST API endpoints: /api/health, /api/tasks (GET/POST/PUT/DELETE).
     """
     print("[E2E Test] Testing FastAPI REST endpoints...")
     user_id = "test_user_api"
@@ -119,7 +129,19 @@ def test_fastapi_rest_endpoints():
     assert list_res.status_code == 200
     assert len(list_res.json()) == 1
 
-    # 5. Mocked Execute Task via POST /api/tasks/{id}/run
+    # 5. Update Task Details via PUT /api/tasks/{id}
+    update_payload = {
+        "name": "Backend Jobs Task",
+        "url": "https://example.com/backend-jobs",
+        "goal": "extract backend developer positions",
+    }
+    put_res = client.put(f"/api/tasks/{task_id}", json=update_payload)
+    assert put_res.status_code == 200
+    updated_task_data = put_res.json()
+    assert updated_task_data["name"] == "Backend Jobs Task"
+    assert updated_task_data["goal"] == "extract backend developer positions"
+
+    # 6. Mocked Execute Task via POST /api/tasks/{id}/run
     mock_gemini_json = json.dumps({"items": [{"title": "API Test Item"}]})
     with patch("backend.controller.fetch_html", return_value=SAMPLE_MEETUP_HTML):
         with patch("backend.controller.extract_content", return_value=mock_gemini_json):
@@ -129,7 +151,7 @@ def test_fastapi_rest_endpoints():
             assert updated["last_status"] == "SUCCESS"
             assert updated["last_result"] == mock_gemini_json
 
-    # 6. Delete Task via DELETE /api/tasks/{id}
+    # 7. Delete Task via DELETE /api/tasks/{id}
     del_res = client.delete(f"/api/tasks/{task_id}?user_id={user_id}")
     assert del_res.status_code == 200
 
@@ -169,4 +191,4 @@ if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
     test_e2e_live_api()
-    print("All Step 3 E2E tests completed successfully!")
+    print("All E2E tests completed successfully!")

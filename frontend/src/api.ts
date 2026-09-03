@@ -1,4 +1,4 @@
-import { Task, CreateTaskPayload } from './types';
+import { Task, CreateTaskPayload, UpdateTaskPayload } from './types';
 
 // Reads API URL from environment variable in Vercel or defaults to local FastAPI
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -20,6 +20,19 @@ export async function createTask(payload: CreateTaskPayload): Promise<Task> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(errorData.detail || 'Failed to create task');
+  }
+  return response.json();
+}
+
+export async function updateTaskById(taskId: number, payload: UpdateTaskPayload): Promise<Task> {
+  const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(errorData.detail || 'Failed to update task');
   }
   return response.json();
 }

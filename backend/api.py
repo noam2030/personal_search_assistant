@@ -15,6 +15,12 @@ class CreateTaskRequest(BaseModel):
     goal: str
 
 
+class UpdateTaskRequest(BaseModel):
+    name: Optional[str] = None
+    url: Optional[str] = None
+    goal: Optional[str] = None
+
+
 class TaskResponse(BaseModel):
     id: int
     user_id: str
@@ -49,6 +55,26 @@ def create_task(req: CreateTaskRequest):
 
     task = db.add_task(user_id=req.user_id, name=req.name, url=req.url, goal=req.goal)
     return task
+
+
+@router.put("/tasks/{task_id}", response_model=TaskResponse)
+def update_task(task_id: int, req: UpdateTaskRequest):
+    """Updates an existing task's name, URL, or extraction goal."""
+    existing = db.get_task(task_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found.")
+
+    new_name = req.name.strip() if req.name and req.name.strip() else existing["name"]
+    new_url = req.url.strip() if req.url and req.url.strip() else existing["url"]
+    new_goal = req.goal.strip() if req.goal and req.goal.strip() else existing["goal"]
+
+    updated_task = db.update_task_details(
+        task_id=task_id, name=new_name, url=new_url, goal=new_goal
+    )
+    if not updated_task:
+        raise HTTPException(status_code=500, detail="Failed to update task details.")
+
+    return updated_task
 
 
 @router.post("/tasks/{task_id}/run", response_model=TaskResponse)

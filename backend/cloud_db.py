@@ -83,6 +83,31 @@ def get_task_cloud(task_id: int) -> Optional[Dict[str, Any]]:
     return None
 
 
+def update_task_details_cloud(
+    task_id: int,
+    name: str,
+    url: str,
+    goal: str,
+) -> Optional[Dict[str, Any]]:
+    """Updates task name, url, and goal in Firestore."""
+    db = get_firestore_client()
+    if db:
+        docs = db.collection(COLLECTION_NAME).where("id", "==", task_id).stream()
+        for doc in docs:
+            doc.reference.update(
+                {
+                    "name": name,
+                    "url": url,
+                    "goal": goal,
+                }
+            )
+            updated = doc.to_dict()
+            updated.update({"name": name, "url": url, "goal": goal})
+            return updated
+
+    return None
+
+
 def update_task_result_cloud(
     task_id: int,
     status: str,

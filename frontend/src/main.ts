@@ -1,5 +1,5 @@
 import { Task } from './types';
-import { fetchUserTasks, createTask, runTaskById, deleteTaskById } from './api';
+import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById } from './api';
 
 // DOM Element References
 const userIdInput = document.getElementById('userIdInput') as HTMLInputElement;
@@ -10,8 +10,9 @@ const taskUrlInput = document.getElementById('taskUrl') as HTMLInputElement;
 const taskGoalInput = document.getElementById('taskGoal') as HTMLTextAreaElement;
 const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
 
-// Running & View Mode State
+// Running, Edit & View Mode State
 const runningTasks: Record<number, boolean> = {};
+const editingTasks: Record<number, boolean> = {};
 const resultViewModes: Record<number, 'visual' | 'raw'> = {};
 
 async function loadTasks(): Promise<void> {
@@ -38,6 +39,7 @@ function renderTaskList(tasks: Task[]): void {
     card.className = 'task-card';
 
     const isRunning = !!runningTasks[task.id];
+    const isEditing = !!editingTasks[task.id];
     const status = isRunning ? 'RUNNING' : (task.last_status || 'Pending');
     const badgeClass = isRunning
       ? 'badge-pending'
@@ -49,50 +51,111 @@ function renderTaskList(tasks: Task[]): void {
 
     const viewMode = resultViewModes[task.id] || 'visual';
 
-    card.innerHTML = `
-      <div class="task-header">
-        <span class="task-name">${escapeHtml(task.name)}</span>
-        <span class="badge ${badgeClass}">${status}</span>
-      </div>
-      <div class="task-detail"><strong>URL:</strong> <a href="${escapeHtml(task.url)}" target="_blank" rel="noopener">${escapeHtml(task.url)}</a></div>
-      <div class="task-detail"><strong>Goal:</strong> ${escapeHtml(task.goal)}</div>
-      <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
-      
-      <div class="task-actions">
-        <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
-          ${isRunning ? '<div class="spinner"></div> Running...' : '▶ Run Task'}
-        </button>
-        <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
-      </div>
+    if (isEditing) {
+      card.innerHTML = `
+        <div class="task-header">
+          <span class="task-name" style="color: #60a5fa;">✏️ Editing Task #${task.id}</span>
+        </div>
+        <div class="form-group" style="margin-top: 0.8rem;">
+          <label>Task Name</label>
+          <input type="text" class="edit-name-input" value="${escapeHtml(task.name)}" required>
+        </div>
+        <div class="form-group">
+          <label>Target URL</label>
+          <input type="url" class="edit-url-input" value="${escapeHtml(task.url)}" required>
+        </div>
+        <div class="form-group">
+          <label>Extraction Goal</label>
+          <textarea class="edit-goal-input" rows="2" required>${escapeHtml(task.goal)}</textarea>
+        </div>
+        <div class="task-actions">
+          <button class="save-edit-btn" data-id="${task.id}">💾 Save Changes</button>
+          <button class="btn-secondary cancel-edit-btn" data-id="${task.id}">Cancel</button>
+        </div>
+      `;
 
-      ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
-      ${task.last_result ? renderResultSection(task.last_result, viewMode) : ''}
-    `;
+      const saveBtn = card.querySelector('.save-edit-btn') as HTMLButtonElement;
+      saveBtn.addEventListener('click', () => handleSaveEdit(task.id, card));
 
-    // Event Listeners
-    const runBtn = card.querySelector('.run-btn') as HTMLButtonElement;
-    runBtn.addEventListener('click', () => handleRunTask(task.id));
-
-    const deleteBtn = card.querySelector('.delete-btn') as HTMLButtonElement;
-    deleteBtn.addEventListener('click', () => handleDeleteTask(task.id));
-
-    // View Toggle Listeners
-    const visualToggle = card.querySelector('.toggle-visual') as HTMLButtonElement | null;
-    const rawToggle = card.querySelector('.toggle-raw') as HTMLButtonElement | null;
-
-    if (visualToggle && rawToggle) {
-      visualToggle.addEventListener('click', () => {
-        resultViewModes[task.id] = 'visual';
+      const cancelBtn = card.querySelector('.cancel-edit-btn') as HTMLButtonElement;
+      cancelBtn.addEventListener('click', () => {
+        delete editingTasks[task.id];
         loadTasks();
       });
-      rawToggle.addEventListener('click', () => {
-        resultViewModes[task.id] = 'raw';
+    } else {
+      card.innerHTML = `
+        <div class="task-header">
+          <span class="task-name">${escapeHtml(task.name)}</span>
+          <span class="badge ${badgeClass}">${status}</span>
+        </div>
+        <div class="task-detail"><strong>URL:</strong> <a href="${escapeHtml(task.url)}" target="_blank" rel="noopener">${escapeHtml(task.url)}</a></div>
+        <div class="task-detail"><strong>Goal:</strong> ${escapeHtml(task.goal)}</div>
+        <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
+        
+        <div class="task-actions">
+          <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
+            ${isRunning ? '<div class="spinner"></div> Running...' : '▶ Run Task'}
+          </button>
+          <button class="btn-secondary edit-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>✏️ Edit</button>
+          <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
+        </div>
+
+        ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
+        ${task.last_result ? renderResultSection(task.last_result, viewMode) : ''}
+      `;
+
+      const runBtn = card.querySelector('.run-btn') as HTMLButtonElement;
+      runBtn.addEventListener('click', () => handleRunTask(task.id));
+
+      const editBtn = card.querySelector('.edit-btn') as HTMLButtonElement;
+      editBtn.addEventListener('click', () => {
+        editingTasks[task.id] = true;
         loadTasks();
       });
+
+      const deleteBtn = card.querySelector('.delete-btn') as HTMLButtonElement;
+      deleteBtn.addEventListener('click', () => handleDeleteTask(task.id));
+
+      const visualToggle = card.querySelector('.toggle-visual') as HTMLButtonElement | null;
+      const rawToggle = card.querySelector('.toggle-raw') as HTMLButtonElement | null;
+
+      if (visualToggle && rawToggle) {
+        visualToggle.addEventListener('click', () => {
+          resultViewModes[task.id] = 'visual';
+          loadTasks();
+        });
+        rawToggle.addEventListener('click', () => {
+          resultViewModes[task.id] = 'raw';
+          loadTasks();
+        });
+      }
     }
 
     taskListContainer.appendChild(card);
   });
+}
+
+async function handleSaveEdit(taskId: number, card: HTMLElement): Promise<void> {
+  const nameInput = card.querySelector('.edit-name-input') as HTMLInputElement;
+  const urlInput = card.querySelector('.edit-url-input') as HTMLInputElement;
+  const goalInput = card.querySelector('.edit-goal-input') as HTMLTextAreaElement;
+
+  const name = nameInput.value.trim();
+  const url = urlInput.value.trim();
+  const goal = goalInput.value.trim();
+
+  if (!name || !url || !goal) {
+    alert('Please fill out all fields (Name, URL, and Goal).');
+    return;
+  }
+
+  try {
+    await updateTaskById(taskId, { name, url, goal });
+    delete editingTasks[taskId];
+    await loadTasks();
+  } catch (error) {
+    alert(`Failed to update task: ${(error as Error).message}`);
+  }
 }
 
 function renderResultSection(rawResult: string, viewMode: 'visual' | 'raw'): string {
@@ -118,7 +181,6 @@ function renderVisualCards(rawResult: string): string {
     const cleanRaw = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     const parsed = JSON.parse(cleanRaw);
 
-    // Extract items array
     let items: any[] = [];
     let reason: string | null = null;
 
@@ -154,7 +216,6 @@ function renderSingleItemCard(item: any): string {
     return `<div class="result-item-card"><div class="result-item-title">${escapeHtml(String(item))}</div></div>`;
   }
 
-  // Identify title, description, link
   const titleKey = Object.keys(item).find((k) => /title|name|heading|event/i.test(k)) || Object.keys(item)[0];
   const title = titleKey ? String(item[titleKey]) : 'Extracted Item';
 
@@ -164,7 +225,6 @@ function renderSingleItemCard(item: any): string {
   const descKey = Object.keys(item).find((k) => /desc|details|summary|text|info/i.test(k));
   const description = descKey && descKey !== titleKey ? String(item[descKey]) : null;
 
-  // Extract remaining fields as attribute pills
   const ignoredKeys = new Set([titleKey, linkKey, descKey].filter(Boolean));
   const pills = Object.entries(item)
     .filter(([k]) => !ignoredKeys.has(k))
