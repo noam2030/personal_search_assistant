@@ -2,8 +2,18 @@ import sqlite3
 import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from backend import cloud_db
 
 DB_FILE = os.getenv("DATABASE_PATH", "assistant.db")
+
+
+def is_cloud_available() -> bool:
+    """
+    Checks if Cloud DB (Firestore) is active.
+    Automatically active when running in Google Cloud Run (K_SERVICE is set).
+    """
+    is_in_cloud_run = os.getenv("K_SERVICE") is not None
+    return is_in_cloud_run and cloud_db.get_firestore_client() is not None
 
 
 def get_connection():
@@ -15,6 +25,8 @@ def get_connection():
 
 def init_db():
     """Initializes the database schema if tables do not exist."""
+    if is_cloud_available():
+        return
     with get_connection() as conn:
         conn.execute(
             """
@@ -37,6 +49,9 @@ def init_db():
 
 def add_task(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
     """Adds a new persistent task for a user."""
+    if is_cloud_available():
+        return cloud_db.add_task_cloud(user_id=user_id, name=name, url=url, goal=goal)
+
     init_db()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
@@ -55,6 +70,9 @@ def add_task(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
 
 def list_tasks(user_id: str) -> List[Dict[str, Any]]:
     """Lists all tasks for a specific user."""
+    if is_cloud_available():
+        return cloud_db.list_tasks_cloud(user_id=user_id)
+
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -67,6 +85,9 @@ def list_tasks(user_id: str) -> List[Dict[str, Any]]:
 
 def get_task(task_id: int) -> Optional[Dict[str, Any]]:
     """Fetches a single task by ID."""
+    if is_cloud_available():
+        return cloud_db.get_task_cloud(task_id=task_id)
+
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -82,6 +103,15 @@ def update_task_result(
     error: str | None = None,
 ):
     """Updates the task row with the latest execution status and result."""
+    if is_cloud_available():
+        cloud_db.update_task_result_cloud(
+            task_id=task_id,
+            status=status,
+            result_json=result_json,
+            error=error,
+        )
+        return
+
     init_db()
     last_run_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
@@ -98,6 +128,9 @@ def update_task_result(
 
 def delete_task(task_id: int, user_id: str = None) -> bool:
     """Deletes a task by ID."""
+    if is_cloud_available():
+        return cloud_db.delete_task_cloud(task_id=task_id, user_id=user_id)
+
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
