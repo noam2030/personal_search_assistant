@@ -32,7 +32,7 @@ def run_task_by_id(task_id: int) -> dict:
     if not task:
         raise ValueError(f"Task with ID {task_id} not found.")
 
-    task_desc = task.get("task_description") or task.get("goal") or ""
+    task_desc = task.get("task_description", "")
 
     print(f"--- Running Task [{task['id']}] '{task['name']}' ---")
     try:
