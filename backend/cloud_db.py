@@ -27,7 +27,7 @@ def get_firestore_client():
 # Firestore Cloud Database Operations
 # -----------------------------------------------------------------------------
 
-def add_task_cloud(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
+def add_task_cloud(user_id: str, name: str, task_description: str) -> Dict[str, Any]:
     """Adds a task to Firestore cloud database."""
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db = get_firestore_client()
@@ -38,8 +38,7 @@ def add_task_cloud(user_id: str, name: str, url: str, goal: str) -> Dict[str, An
             "id": int(datetime.now().timestamp() * 1000) % 2147483647,
             "user_id": user_id,
             "name": name,
-            "url": url,
-            "goal": goal,
+            "task_description": task_description,
             "last_run_at": None,
             "last_status": None,
             "last_result": None,
@@ -86,10 +85,9 @@ def get_task_cloud(task_id: int) -> Optional[Dict[str, Any]]:
 def update_task_details_cloud(
     task_id: int,
     name: str,
-    url: str,
-    goal: str,
+    task_description: str,
 ) -> Optional[Dict[str, Any]]:
-    """Updates task name, url, and goal in Firestore."""
+    """Updates task name and task_description in Firestore."""
     db = get_firestore_client()
     if db:
         docs = db.collection(COLLECTION_NAME).where("id", "==", task_id).stream()
@@ -97,12 +95,11 @@ def update_task_details_cloud(
             doc.reference.update(
                 {
                     "name": name,
-                    "url": url,
-                    "goal": goal,
+                    "task_description": task_description,
                 }
             )
             updated = doc.to_dict()
-            updated.update({"name": name, "url": url, "goal": goal})
+            updated.update({"name": name, "task_description": task_description})
             return updated
 
     return None

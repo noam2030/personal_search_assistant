@@ -12,9 +12,7 @@ const modalTitle = document.getElementById('modalTitle') as HTMLHeadingElement;
 const submitTaskBtnText = document.getElementById('submitTaskBtnText') as HTMLSpanElement;
 
 const createTaskForm = document.getElementById('createTaskForm') as HTMLFormElement;
-const taskNameInput = document.getElementById('taskName') as HTMLInputElement;
-const taskUrlInput = document.getElementById('taskUrl') as HTMLInputElement;
-const taskGoalInput = document.getElementById('taskGoal') as HTMLTextAreaElement;
+const taskDescriptionInput = document.getElementById('taskDescription') as HTMLTextAreaElement;
 const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
 
 // Running, Editing & View Mode State
@@ -27,9 +25,7 @@ function openModal(mode: 'create' | 'edit', task?: Task): void {
     editingTaskId = task.id;
     modalTitle.textContent = `Edit Task: ${task.name}`;
     submitTaskBtnText.textContent = '💾 Save Changes';
-    taskNameInput.value = task.name;
-    taskUrlInput.value = task.url;
-    taskGoalInput.value = task.goal;
+    taskDescriptionInput.value = task.task_description;
   } else {
     editingTaskId = null;
     modalTitle.textContent = 'Create New Task';
@@ -38,7 +34,7 @@ function openModal(mode: 'create' | 'edit', task?: Task): void {
   }
 
   taskModal.classList.remove('hidden');
-  taskNameInput.focus();
+  taskDescriptionInput.focus();
 }
 
 function closeModal(): void {
@@ -87,8 +83,7 @@ function renderTaskList(tasks: Task[]): void {
         <span class="task-name">${escapeHtml(task.name)}</span>
         <span class="badge ${badgeClass}">${status}</span>
       </div>
-      <div class="task-detail"><strong>URL:</strong> <a href="${escapeHtml(task.url)}" target="_blank" rel="noopener">${escapeHtml(task.url)}</a></div>
-      <div class="task-detail"><strong>Goal:</strong> ${escapeHtml(task.goal)}</div>
+      <div class="task-detail"><strong>Task Description:</strong> ${escapeHtml(task.task_description)}</div>
       <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
       
       <div class="task-actions">
@@ -261,11 +256,9 @@ document.addEventListener('keydown', (e) => {
 createTaskForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const userId = userIdInput.value.trim() || 'noam';
-  const name = taskNameInput.value.trim();
-  const url = taskUrlInput.value.trim();
-  const goal = taskGoalInput.value.trim();
+  const task_description = taskDescriptionInput.value.trim();
 
-  if (!name || !url || !goal) return;
+  if (!task_description) return;
 
   const submitBtn = createTaskForm.querySelector('button[type="submit"]') as HTMLButtonElement;
   submitBtn.disabled = true;
@@ -273,10 +266,10 @@ createTaskForm.addEventListener('submit', async (e) => {
   try {
     if (editingTaskId !== null) {
       // Editing existing task
-      await updateTaskById(editingTaskId, { name, url, goal });
+      await updateTaskById(editingTaskId, { task_description });
     } else {
       // Creating new task
-      await createTask({ user_id: userId, name, url, goal });
+      await createTask({ user_id: userId, task_description });
     }
     closeModal();
     await loadTasks();

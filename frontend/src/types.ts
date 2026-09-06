@@ -2,8 +2,7 @@ export interface Task {
   id: number;
   user_id: str;
   name: string;
-  url: string;
-  goal: string;
+  task_description: string;
   last_run_at?: string | null;
   last_status?: 'SUCCESS' | 'FAILED' | 'Pending' | null;
   last_result?: string | null;
@@ -15,13 +14,10 @@ export type str = string;
 
 export interface CreateTaskPayload {
   user_id: string;
-  name: string;
-  url: string;
-  goal: string;
+  task_description: string;
 }
 
 export interface UpdateTaskPayload {
+  task_description?: string;
   name?: string;
-  url?: string;
-  goal?: string;
 }
