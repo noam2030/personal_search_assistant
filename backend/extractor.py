@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from dotenv import load_dotenv
 from google import genai
 
@@ -11,7 +12,7 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
     """
     Passes the goal (and optional cleaned webpage text) to Gemini API.
     If no webpage text is provided, Gemini executes live Google Search Grounding.
-    Also returns a concise 3-5 word task_title in the JSON response.
+    Includes retry logic and friendly network error handling.
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -21,10 +22,6 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
         )
 
     client = genai.Client(api_key=api_key)
-
-    # Detect if the goal prompt contains an explicit URL
-    url_match = re.search(r'https?://[^\s]+', goal)
-    explicit_url = url_match.group(0) if url_match else None
 
     if cleaned_text:
         prompt = (
@@ -45,16 +42,12 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
             f'      "title": "Item Title",\n'
             f'      "link": "https://...",\n'
             f'      "description": "Details",\n'
-            f'      "location": "Location if applicable",\n'
-            f'      "price": "Price/Date if applicable"\n'
+            f'      "location": "Location if applicable"\n'
             f'    }}\n'
             f'  ]\n'
             f"}}\n"
         )
-        response = client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=prompt,
-        )
+        return _call_gemini_with_retry(client, prompt)
     else:
         # Pure natural language prompt -> Enable Google Search Grounding
         prompt = (
@@ -62,7 +55,7 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
             f"User Goal: {goal}\n\n"
             f"Task:\n"
             f"1. Perform a web search to find live information matching the user's goal.\n"
-            f"2. Generate a concise 3-5 word task title summarizing the goal.\n"
+            f"2. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
             f"3. Extract matching items with titles, links, and key details.\n"
             f"4. Return ONLY a valid JSON object strictly matching this schema:\n"
             f"{{\n"
@@ -78,17 +71,39 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
             f"}}\n"
         )
         try:
-            response = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=prompt,
-                config={"tools": [{"google_search": {}}]},
-            )
+            return _call_gemini_with_retry(client, prompt, config={"tools": [{"google_search": {}}]})
         except Exception as err:
-            # Fallback without search tool if grounding config is restricted in specific region
-            print(f"[Warning] Grounding fallback: {err}")
-            response = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=prompt,
-            )
+            print(f"[Warning] Grounding fallback attempt: {err}")
+            return _call_gemini_with_retry(client, prompt)
 
-    return response.text
+
+def _call_gemini_with_retry(client, prompt: str, config=None, retries: int = 3) -> str:
+    """Executes generate_content with retries and clean DNS/network error handling."""
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            if config:
+                res = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=prompt,
+                    config=config,
+                )
+            else:
+                res = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=prompt,
+                )
+            return res.text
+        except Exception as e:
+            last_err = e
+            print(f"[Attempt {attempt}/{retries}] Gemini API call failed: {e}")
+            if attempt < retries:
+                time.sleep(1)
+
+    error_str = str(last_err)
+    if "nodename nor servname provided" in error_str or "getaddrinfo failed" in error_str:
+        raise RuntimeError(
+            "Internet/DNS connection unavailable. Please check your internet connection or Wi-Fi and try running the task again."
+        ) from last_err
+
+    raise RuntimeError(f"Gemini API request failed after {retries} attempts: {last_err}") from last_err
