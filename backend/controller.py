@@ -1,7 +1,4 @@
 import json
-import re
-from backend.fetcher import fetch_html
-from backend.cleaner import clean_html
 from backend.extractor import extract_content
 from backend.logger import write_debug_log
 from backend import db
@@ -9,57 +6,20 @@ from backend import db
 
 def run_task(task_description: str) -> str:
     """
-    Orchestrates a single task pipeline:
-    1. If an explicit URL is embedded in task_description, fetches and cleans HTML.
-    2. Otherwise, calls Gemini API with Google Search Grounding to perform web search.
-    3. Returns JSON string containing task_title and extracted items.
+    Orchestrates a single task pipeline using Gemini AI with Google Search Grounding:
+    1. Calls Gemini API with Google Search Grounding to perform web search and information extraction.
+    2. Returns JSON string containing task_title and extracted items.
     """
-    raw_html = ""
-    cleaned_text = ""
     result = ""
-
-    # Check for embedded URL in task_description
-    url_match = re.search(r'https?://[^\s]+', task_description)
-    target_url = url_match.group(0) if url_match else None
-
-    if target_url:
-        print(f"[1/3] Fetching webpage: {target_url} ...")
-        try:
-            raw_html = fetch_html(target_url)
-            write_debug_log(target_url, task_description, raw_html=raw_html, cleaned_text=cleaned_text, result=result)
-        except Exception as e:
-            error_msg = f"Error fetching URL '{target_url}': {e}"
-            write_debug_log(target_url, task_description, raw_html=raw_html, cleaned_text=cleaned_text, result=result, error=error_msg)
-            raise RuntimeError(error_msg) from e
-
-        print("[2/3] Cleaning HTML content ...")
-        cleaned_text = clean_html(raw_html)
-        write_debug_log(target_url, task_description, raw_html=raw_html, cleaned_text=cleaned_text, result=result)
-
-        if not cleaned_text:
-            error_msg = f"Cleaned webpage content is empty for URL '{target_url}'."
-            write_debug_log(target_url, task_description, raw_html=raw_html, cleaned_text=cleaned_text, result=result, error=error_msg)
-            raise ValueError(error_msg)
-
-        print(f"[3/3] Extracting information with Gemini AI for description: '{task_description}' ...\n")
-        try:
-            result = extract_content(task_description=task_description, cleaned_text=cleaned_text)
-            write_debug_log(target_url, task_description, raw_html=raw_html, cleaned_text=cleaned_text, result=result)
-            return result
-        except Exception as e:
-            error_msg = f"Error during AI extraction: {e}"
-            write_debug_log(target_url, task_description, raw_html=raw_html, cleaned_text=cleaned_text, result=result, error=error_msg)
-            raise RuntimeError(error_msg) from e
-    else:
-        print(f"[1/2] Performing Natural Language Web Search for description: '{task_description}' ...")
-        try:
-            result = extract_content(task_description=task_description)
-            write_debug_log("Auto-Web-Search", task_description, raw_html="", cleaned_text="", result=result)
-            return result
-        except Exception as e:
-            error_msg = f"Error during AI search execution: {e}"
-            write_debug_log("Auto-Web-Search", task_description, raw_html="", cleaned_text="", result=result, error=error_msg)
-            raise RuntimeError(error_msg) from e
+    print(f"[1/1] Performing Natural Language Web Search for description: '{task_description}' ...")
+    try:
+        result = extract_content(task_description=task_description)
+        write_debug_log("Google-Search-Grounding", task_description, raw_html="", cleaned_text="", result=result)
+        return result
+    except Exception as e:
+        error_msg = f"Error during AI search execution: {e}"
+        write_debug_log("Google-Search-Grounding", task_description, raw_html="", cleaned_text="", result=result, error=error_msg)
+        raise RuntimeError(error_msg) from e
 
 
 def run_task_by_id(task_id: int) -> dict:
