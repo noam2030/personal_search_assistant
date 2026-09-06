@@ -1,8 +1,20 @@
 import os
 import re
 import time
+import socket
 from dotenv import load_dotenv
 from google import genai
+
+# Force IPv4 socket resolution on macOS to avoid IPv6 [Errno 8] DNS lookup errors
+old_getaddrinfo = socket.getaddrinfo
+def ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    try:
+        # Prefer IPv4 (AF_INET)
+        return old_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    except Exception:
+        return old_getaddrinfo(host, port, family, type, proto, flags)
+
+socket.getaddrinfo = ipv4_getaddrinfo
 
 # Load environment variables from .env file if available
 load_dotenv()
@@ -12,7 +24,7 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
     """
     Passes the goal (and optional cleaned webpage text) to Gemini API.
     If no webpage text is provided, Gemini executes live Google Search Grounding.
-    Includes retry logic and friendly network error handling.
+    Includes IPv4 forced resolution and friendly error handling.
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -103,7 +115,7 @@ def _call_gemini_with_retry(client, prompt: str, config=None, retries: int = 3) 
     error_str = str(last_err)
     if "nodename nor servname provided" in error_str or "getaddrinfo failed" in error_str:
         raise RuntimeError(
-            "Internet/DNS connection unavailable. Please check your internet connection or Wi-Fi and try running the task again."
+            f"Network DNS lookup failed on local Mac ({last_err}). Please check your Wi-Fi or run the task again."
         ) from last_err
 
     raise RuntimeError(f"Gemini API request failed after {retries} attempts: {last_err}") from last_err
