@@ -23,13 +23,6 @@ def get_firestore_client():
         return None
 
 
-def _normalize_task_dict(task_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensures task_description field exists with backward compatibility for legacy 'goal'."""
-    if task_data and "task_description" not in task_data:
-        task_data["task_description"] = task_data.get("goal", "")
-    return task_data
-
-
 # -----------------------------------------------------------------------------
 # Firestore Cloud Database Operations
 # -----------------------------------------------------------------------------
@@ -46,8 +39,6 @@ def add_task_cloud(user_id: str, name: str, task_description: str) -> Dict[str, 
             "user_id": user_id,
             "name": name,
             "task_description": task_description,
-            "goal": task_description,
-            "url": "",
             "last_run_at": None,
             "last_status": None,
             "last_result": None,
@@ -69,7 +60,7 @@ def list_tasks_cloud(user_id: str) -> List[Dict[str, Any]]:
             .where("user_id", "==", user_id)
             .stream()
         )
-        tasks = [_normalize_task_dict(doc.to_dict()) for doc in docs]
+        tasks = [doc.to_dict() for doc in docs]
         return sorted(tasks, key=lambda x: x.get("id", 0))
 
     return []
@@ -86,7 +77,7 @@ def get_task_cloud(task_id: int) -> Optional[Dict[str, Any]]:
             .stream()
         )
         for doc in docs:
-            return _normalize_task_dict(doc.to_dict())
+            return doc.to_dict()
 
     return None
 
@@ -105,12 +96,11 @@ def update_task_details_cloud(
                 {
                     "name": name,
                     "task_description": task_description,
-                    "goal": task_description,
                 }
             )
             updated = doc.to_dict()
-            updated.update({"name": name, "task_description": task_description, "goal": task_description})
-            return _normalize_task_dict(updated)
+            updated.update({"name": name, "task_description": task_description})
+            return updated
 
     return None
 

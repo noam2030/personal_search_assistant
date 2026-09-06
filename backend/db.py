@@ -54,14 +54,6 @@ def init_db():
         conn.commit()
 
 
-def _normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensures task_description exists with backward compatibility for legacy 'goal'."""
-    d = dict(row)
-    if not d.get("task_description"):
-        d["task_description"] = d.get("goal", "")
-    return d
-
-
 def add_task(user_id: str, name: str, task_description: str) -> Dict[str, Any]:
     """Adds a new persistent task for a user."""
     if is_cloud_available():
@@ -95,7 +87,7 @@ def list_tasks(user_id: str) -> List[Dict[str, Any]]:
             "SELECT * FROM tasks WHERE user_id = ? ORDER BY id ASC", (user_id,)
         )
         rows = cursor.fetchall()
-        return [_normalize_row(row) for row in rows]
+        return [dict(row) for row in rows]
 
 
 def get_task(task_id: int) -> Optional[Dict[str, Any]]:
@@ -108,7 +100,7 @@ def get_task(task_id: int) -> Optional[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
         row = cursor.fetchone()
-        return _normalize_row(row) if row else None
+        return dict(row) if row else None
 
 
 def update_task_details(
