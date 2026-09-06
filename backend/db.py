@@ -35,8 +35,6 @@ def init_db():
                 user_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 task_description TEXT NOT NULL DEFAULT '',
-                goal TEXT DEFAULT '',
-                url TEXT DEFAULT '',
                 last_run_at TEXT,
                 last_status TEXT,
                 last_result TEXT,
@@ -45,12 +43,16 @@ def init_db():
             )
             """
         )
-        # Migrate table if task_description column does not exist on existing DB
+        # Migrate table: add task_description if missing, drop legacy url/goal columns if present
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(tasks)")
         columns = [column[1] for column in cursor.fetchall()]
         if "task_description" not in columns:
             cursor.execute("ALTER TABLE tasks ADD COLUMN task_description TEXT NOT NULL DEFAULT ''")
+        if "url" in columns:
+            cursor.execute("ALTER TABLE tasks DROP COLUMN url")
+        if "goal" in columns:
+            cursor.execute("ALTER TABLE tasks DROP COLUMN goal")
         conn.commit()
 
 
@@ -65,10 +67,10 @@ def add_task(user_id: str, name: str, task_description: str) -> Dict[str, Any]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO tasks (user_id, name, task_description, goal, url, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO tasks (user_id, name, task_description, created_at)
+            VALUES (?, ?, ?, ?)
             """,
-            (user_id, name, task_description, task_description, "", created_at),
+            (user_id, name, task_description, created_at),
         )
         conn.commit()
         task_id = cursor.lastrowid
@@ -120,10 +122,10 @@ def update_task_details(
         cursor.execute(
             """
             UPDATE tasks
-            SET name = ?, task_description = ?, goal = ?
+            SET name = ?, task_description = ?
             WHERE id = ?
             """,
-            (name, task_description, task_description, task_id),
+            (name, task_description, task_id),
         )
         conn.commit()
         if cursor.rowcount > 0:

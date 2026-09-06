@@ -14,11 +14,11 @@ def run_task(task_description: str) -> str:
     print(f"[1/1] Performing Natural Language Web Search for description: '{task_description}' ...")
     try:
         result = extract_content(task_description=task_description)
-        write_debug_log("Google-Search-Grounding", task_description, raw_html="", cleaned_text="", result=result)
+        write_debug_log(task_description=task_description, result=result)
         return result
     except Exception as e:
         error_msg = f"Error during AI search execution: {e}"
-        write_debug_log("Google-Search-Grounding", task_description, raw_html="", cleaned_text="", result=result, error=error_msg)
+        write_debug_log(task_description=task_description, result=result, error=error_msg)
         raise RuntimeError(error_msg) from e
 
 

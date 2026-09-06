@@ -1,5 +1,4 @@
 import argparse
-import json
 import sys
 from backend.controller import run_task, run_user_tasks, run_task_by_id
 from backend import db
@@ -15,9 +14,8 @@ def main():
     # Command: add-task
     add_parser = subparsers.add_parser("add-task", help="Add a new persistent task for a user")
     add_parser.add_argument("--user", type=str, required=True, help="User ID (e.g. 'noam')")
-    add_parser.add_argument("--name", type=str, required=True, help="Task name (e.g. 'Android Jobs')")
-    add_parser.add_argument("--url", type=str, required=True, help="Target URL to crawl")
-    add_parser.add_argument("--goal", type=str, required=True, help="Extraction goal / prompt")
+    add_parser.add_argument("--description", type=str, required=True, help="Task description / prompt")
+    add_parser.add_argument("--name", type=str, help="Optional task name")
 
     # Command: list-tasks
     list_parser = subparsers.add_parser("list-tasks", help="List all persistent tasks for a user")
@@ -40,15 +38,15 @@ def main():
     del_parser.add_argument("--user", type=str, required=True, help="User ID (e.g. 'noam')")
     del_parser.add_argument("--id", type=int, required=True, help="Task ID to delete")
 
-    # Fallback options for single run mode: --url and --goal
-    parser.add_argument("--url", type=str, help="Target URL (single-run mode)")
-    parser.add_argument("--goal", type=str, help="Extraction goal (single-run mode)")
+    # Single-run option: --description
+    parser.add_argument("--description", type=str, help="Task description (single-run mode)")
 
     args = parser.parse_args()
 
     # Handle subcommands
     if args.command == "add-task":
-        task = db.add_task(user_id=args.user, name=args.name, url=args.url, goal=args.goal)
+        initial_name = args.name or (args.description[:40] + ("..." if len(args.description) > 40 else ""))
+        task = db.add_task(user_id=args.user, name=initial_name, task_description=args.description)
         print(f"✓ Task '{task['name']}' (ID: {task['id']}) created for user '{args.user}'.")
 
     elif args.command == "list-tasks":
@@ -61,8 +59,7 @@ def main():
             last_run = t["last_run_at"] or "Never"
             status = t["last_status"] or "Pending"
             print(f"[{t['id']}] {t['name']} | Status: {status} | Last Run: {last_run}")
-            print(f"    URL : {t['url']}")
-            print(f"    Goal: {t['goal']}\n")
+            print(f"    Description: {t['task_description']}\n")
 
     elif args.command == "run-tasks":
         run_user_tasks(user_id=args.user)
@@ -103,10 +100,9 @@ def main():
         else:
             print(f"✗ Task {args.id} not found for user '{args.user}'.", file=sys.stderr)
 
-    elif args.url and args.goal:
-        # Backward-compatible single-run execution mode
+    elif args.description:
         try:
-            result = run_task(url=args.url, goal=args.goal)
+            result = run_task(task_description=args.description)
             print("=== EXTRACTION RESULT ===")
             print(result)
         except Exception as e:
