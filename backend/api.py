@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, HttpUrl
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
+from typing import Optional, List
 
 from backend import db
 from backend.controller import run_task_by_id
@@ -10,9 +10,9 @@ router = APIRouter(prefix="/api")
 
 class CreateTaskRequest(BaseModel):
     user_id: str
-    name: str
-    url: str
     goal: str
+    name: Optional[str] = None
+    url: Optional[str] = ""
 
 
 class UpdateTaskRequest(BaseModel):
@@ -25,7 +25,7 @@ class TaskResponse(BaseModel):
     id: int
     user_id: str
     name: str
-    url: str
+    url: Optional[str] = ""
     goal: str
     last_run_at: Optional[str] = None
     last_status: Optional[str] = None
@@ -49,11 +49,14 @@ def list_tasks(user_id: str = Query(..., description="User ID to list tasks for"
 
 @router.post("/tasks", response_model=TaskResponse, status_code=201)
 def create_task(req: CreateTaskRequest):
-    """Creates a new persistent task."""
-    if not req.user_id.strip() or not req.name.strip() or not req.url.strip() or not req.goal.strip():
-        raise HTTPException(status_code=400, detail="All fields (user_id, name, url, goal) are required.")
+    """Creates a new persistent natural language task."""
+    if not req.user_id.strip() or not req.goal.strip():
+        raise HTTPException(status_code=400, detail="User ID and Natural Language Goal are required.")
 
-    task = db.add_task(user_id=req.user_id, name=req.name, url=req.url, goal=req.goal)
+    task_name = req.name.strip() if req.name and req.name.strip() else (req.goal.strip()[:40] + ("..." if len(req.goal.strip()) > 40 else ""))
+    task_url = req.url.strip() if req.url else ""
+
+    task = db.add_task(user_id=req.user_id, name=task_name, url=task_url, goal=req.goal.strip())
     return task
 
 
@@ -65,7 +68,7 @@ def update_task(task_id: int, req: UpdateTaskRequest):
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found.")
 
     new_name = req.name.strip() if req.name and req.name.strip() else existing["name"]
-    new_url = req.url.strip() if req.url and req.url.strip() else existing["url"]
+    new_url = req.url.strip() if req.url is not None else existing.get("url", "")
     new_goal = req.goal.strip() if req.goal and req.goal.strip() else existing["goal"]
 
     updated_task = db.update_task_details(
