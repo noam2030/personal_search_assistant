@@ -23,11 +23,18 @@ def get_firestore_client():
         return None
 
 
+def _normalize_task_dict(task_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensures task_description field exists with backward compatibility for legacy 'goal'."""
+    if task_data and "task_description" not in task_data:
+        task_data["task_description"] = task_data.get("goal", "")
+    return task_data
+
+
 # -----------------------------------------------------------------------------
 # Firestore Cloud Database Operations
 # -----------------------------------------------------------------------------
 
-def add_task_cloud(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
+def add_task_cloud(user_id: str, name: str, task_description: str) -> Dict[str, Any]:
     """Adds a task to Firestore cloud database."""
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db = get_firestore_client()
@@ -38,8 +45,9 @@ def add_task_cloud(user_id: str, name: str, url: str, goal: str) -> Dict[str, An
             "id": int(datetime.now().timestamp() * 1000) % 2147483647,
             "user_id": user_id,
             "name": name,
-            "url": url,
-            "goal": goal,
+            "task_description": task_description,
+            "goal": task_description,
+            "url": "",
             "last_run_at": None,
             "last_status": None,
             "last_result": None,
@@ -61,7 +69,7 @@ def list_tasks_cloud(user_id: str) -> List[Dict[str, Any]]:
             .where("user_id", "==", user_id)
             .stream()
         )
-        tasks = [doc.to_dict() for doc in docs]
+        tasks = [_normalize_task_dict(doc.to_dict()) for doc in docs]
         return sorted(tasks, key=lambda x: x.get("id", 0))
 
     return []
@@ -78,7 +86,7 @@ def get_task_cloud(task_id: int) -> Optional[Dict[str, Any]]:
             .stream()
         )
         for doc in docs:
-            return doc.to_dict()
+            return _normalize_task_dict(doc.to_dict())
 
     return None
 
@@ -86,10 +94,9 @@ def get_task_cloud(task_id: int) -> Optional[Dict[str, Any]]:
 def update_task_details_cloud(
     task_id: int,
     name: str,
-    url: str,
-    goal: str,
+    task_description: str,
 ) -> Optional[Dict[str, Any]]:
-    """Updates task name, url, and goal in Firestore."""
+    """Updates task name and task_description in Firestore."""
     db = get_firestore_client()
     if db:
         docs = db.collection(COLLECTION_NAME).where("id", "==", task_id).stream()
@@ -97,13 +104,13 @@ def update_task_details_cloud(
             doc.reference.update(
                 {
                     "name": name,
-                    "url": url,
-                    "goal": goal,
+                    "task_description": task_description,
+                    "goal": task_description,
                 }
             )
             updated = doc.to_dict()
-            updated.update({"name": name, "url": url, "goal": goal})
-            return updated
+            updated.update({"name": name, "task_description": task_description, "goal": task_description})
+            return _normalize_task_dict(updated)
 
     return None
 

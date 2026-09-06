@@ -1,5 +1,4 @@
 import os
-import re
 import time
 import socket
 from dotenv import load_dotenv
@@ -9,7 +8,6 @@ from google import genai
 old_getaddrinfo = socket.getaddrinfo
 def ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     try:
-        # Prefer IPv4 (AF_INET)
         return old_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     except Exception:
         return old_getaddrinfo(host, port, family, type, proto, flags)
@@ -20,11 +18,11 @@ socket.getaddrinfo = ipv4_getaddrinfo
 load_dotenv()
 
 
-def extract_content(goal: str, cleaned_text: str | None = None) -> str:
+def extract_content(task_description: str, cleaned_text: str | None = None) -> str:
     """
-    Passes the goal (and optional cleaned webpage text) to Gemini API.
+    Passes the task_description (and optional cleaned webpage text) to Gemini API.
     If no webpage text is provided, Gemini executes live Google Search Grounding.
-    Includes IPv4 forced resolution and friendly error handling.
+    Gemini understands the goal, executes search/extraction, and returns task_title + items.
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -38,15 +36,16 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
     if cleaned_text:
         prompt = (
             f"You are an AI Personal Search Assistant.\n"
-            f"Goal: {goal}\n\n"
+            f"User Natural Language Request: {task_description}\n\n"
             f"Below is the cleaned text content from the target webpage:\n"
             f"---------------------\n"
             f"{cleaned_text[:30000]}\n"
             f"---------------------\n\n"
             f"Task:\n"
-            f"1. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
-            f"2. Extract all items matching the goal.\n"
-            f"3. Return ONLY a valid JSON object strictly matching this schema:\n"
+            f"1. Understand the user's intent from their request.\n"
+            f"2. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
+            f"3. Extract all items matching the request.\n"
+            f"4. Return ONLY a valid JSON object strictly matching this schema:\n"
             f"{{\n"
             f'  "task_title": "Short Descriptive Title",\n'
             f'  "items": [\n'
@@ -61,15 +60,15 @@ def extract_content(goal: str, cleaned_text: str | None = None) -> str:
         )
         return _call_gemini_with_retry(client, prompt)
     else:
-        # Pure natural language prompt -> Enable Google Search Grounding
         prompt = (
             f"You are an AI Personal Search Assistant equipped with Google Search.\n"
-            f"User Goal: {goal}\n\n"
+            f"User Natural Language Request: {task_description}\n\n"
             f"Task:\n"
-            f"1. Perform a web search to find live information matching the user's goal.\n"
-            f"2. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
-            f"3. Extract matching items with titles, links, and key details.\n"
-            f"4. Return ONLY a valid JSON object strictly matching this schema:\n"
+            f"1. Understand the user's intent (e.g. finding jobs, price/room monitoring, item discovery).\n"
+            f"2. Perform a web search to find live information matching the user's request.\n"
+            f"3. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
+            f"4. Extract matching items with titles, links, and key details.\n"
+            f"5. Return ONLY a valid JSON object strictly matching this schema:\n"
             f"{{\n"
             f'  "task_title": "Short Descriptive Title",\n'
             f'  "items": [\n'

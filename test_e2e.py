@@ -7,37 +7,16 @@ from fastapi.testclient import TestClient
 from backend import db
 from backend.controller import run_task, run_task_by_id
 from backend.main import app
-from backend.logger import DEBUG_FILE
 
 # Load .env variables if available
 load_dotenv()
 
 client = TestClient(app)
 
-SAMPLE_MEETUP_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Tech Events 2026</title>
-</head>
-<body>
-    <main>
-        <h1>Upcoming Tech Meetups</h1>
-        <div class="event">
-            <h2>Autonomous AI Agents Summit 2026</h2>
-            <p>Date: November 12, 2026</p>
-            <p>Location: San Francisco, CA & Online</p>
-            <a href="https://example.com/events/agents-summit">Register Here</a>
-        </div>
-    </main>
-</body>
-</html>
-"""
-
 
 def test_db_operations():
     """
-    Tests SQLite database CRUD operations for user tasks.
+    Tests SQLite database CRUD operations for user tasks using task_description.
     """
     print("[E2E Test] Testing Database CRUD operations...")
     user_id = "test_user_db"
@@ -47,16 +26,15 @@ def test_db_operations():
     for t in existing:
         db.delete_task(t["id"], user_id)
 
-    # 2. Add Task (natural language goal without explicit URL)
+    # 2. Add Task (single task_description string)
     task = db.add_task(
         user_id=user_id,
         name="Tel Aviv Java Jobs",
-        url="",
-        goal="find me jobs in Tel Aviv Java backend",
+        task_description="find me jobs in Tel Aviv Java backend",
     )
     assert task["id"] is not None
     assert task["user_id"] == user_id
-    assert task["name"] == "Tel Aviv Java Jobs"
+    assert task["task_description"] == "find me jobs in Tel Aviv Java backend"
 
     # 3. List Tasks
     tasks = db.list_tasks(user_id)
@@ -67,11 +45,10 @@ def test_db_operations():
     updated_detail = db.update_task_details(
         task_id=task["id"],
         name="Tel Aviv Senior Java Jobs",
-        url="",
-        goal="find me senior jobs in Tel Aviv Java backend",
+        task_description="find me senior jobs in Tel Aviv Java backend",
     )
     assert updated_detail["name"] == "Tel Aviv Senior Java Jobs"
-    assert updated_detail["goal"] == "find me senior jobs in Tel Aviv Java backend"
+    assert updated_detail["task_description"] == "find me senior jobs in Tel Aviv Java backend"
 
     # 5. Update Task Result
     mock_result = json.dumps({"task_title": "Tel Aviv Senior Java Jobs", "items": [{"title": "Senior Java Developer"}]})
@@ -111,15 +88,15 @@ def test_fastapi_rest_endpoints():
     for t in res.json():
         client.delete(f"/api/tasks/{t['id']}?user_id={user_id}")
 
-    # 3. Create Natural Language Task via POST /api/tasks (no name, no URL)
+    # 3. Create Task via POST /api/tasks (single task_description)
     payload = {
         "user_id": user_id,
-        "goal": "find me jobs in Tel Aviv Java backend",
+        "task_description": "find me jobs in Tel Aviv Java backend",
     }
     create_res = client.post("/api/tasks", json=payload)
     assert create_res.status_code == 201
     created_task = create_res.json()
-    assert created_task["goal"] == "find me jobs in Tel Aviv Java backend"
+    assert created_task["task_description"] == "find me jobs in Tel Aviv Java backend"
     task_id = created_task["id"]
 
     # 4. List Tasks via GET /api/tasks
@@ -129,12 +106,12 @@ def test_fastapi_rest_endpoints():
 
     # 5. Update Task Details via PUT /api/tasks/{id}
     update_payload = {
-        "goal": "find me lead backend developer roles in Tel Aviv",
+        "task_description": "find me lead backend developer roles in Tel Aviv",
     }
     put_res = client.put(f"/api/tasks/{task_id}", json=update_payload)
     assert put_res.status_code == 200
     updated_task_data = put_res.json()
-    assert updated_task_data["goal"] == "find me lead backend developer roles in Tel Aviv"
+    assert updated_task_data["task_description"] == "find me lead backend developer roles in Tel Aviv"
 
     # 6. Mocked Execute Task via POST /api/tasks/{id}/run (Auto-Naming + Results)
     mock_gemini_json = json.dumps({
@@ -167,10 +144,10 @@ def test_e2e_live_api():
         return
 
     print("[E2E Test] Running Live Natural Language Search API test ...")
-    goal = "find me tech news about AI agents"
+    task_description = "find me tech news about AI agents"
 
     try:
-        result = run_task(goal=goal)
+        result = run_task(task_description=task_description)
         assert result is not None
         assert len(result) > 0
         print("[E2E Test] Live Natural Language Search API test passed!\n")

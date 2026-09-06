@@ -34,8 +34,9 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
                 name TEXT NOT NULL,
-                url TEXT NOT NULL,
-                goal TEXT NOT NULL,
+                task_description TEXT NOT NULL DEFAULT '',
+                goal TEXT DEFAULT '',
+                url TEXT DEFAULT '',
                 last_run_at TEXT,
                 last_status TEXT,
                 last_result TEXT,
@@ -44,13 +45,27 @@ def init_db():
             )
             """
         )
+        # Migrate table if task_description column does not exist on existing DB
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(tasks)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if "task_description" not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN task_description TEXT NOT NULL DEFAULT ''")
         conn.commit()
 
 
-def add_task(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
+def _normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensures task_description exists with backward compatibility for legacy 'goal'."""
+    d = dict(row)
+    if not d.get("task_description"):
+        d["task_description"] = d.get("goal", "")
+    return d
+
+
+def add_task(user_id: str, name: str, task_description: str) -> Dict[str, Any]:
     """Adds a new persistent task for a user."""
     if is_cloud_available():
-        return cloud_db.add_task_cloud(user_id=user_id, name=name, url=url, goal=goal)
+        return cloud_db.add_task_cloud(user_id=user_id, name=name, task_description=task_description)
 
     init_db()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -58,10 +73,10 @@ def add_task(user_id: str, name: str, url: str, goal: str) -> Dict[str, Any]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO tasks (user_id, name, url, goal, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO tasks (user_id, name, task_description, goal, url, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, name, url, goal, created_at),
+            (user_id, name, task_description, task_description, "", created_at),
         )
         conn.commit()
         task_id = cursor.lastrowid
@@ -80,7 +95,7 @@ def list_tasks(user_id: str) -> List[Dict[str, Any]]:
             "SELECT * FROM tasks WHERE user_id = ? ORDER BY id ASC", (user_id,)
         )
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [_normalize_row(row) for row in rows]
 
 
 def get_task(task_id: int) -> Optional[Dict[str, Any]]:
@@ -93,19 +108,18 @@ def get_task(task_id: int) -> Optional[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
         row = cursor.fetchone()
-        return dict(row) if row else None
+        return _normalize_row(row) if row else None
 
 
 def update_task_details(
     task_id: int,
     name: str,
-    url: str,
-    goal: str,
+    task_description: str,
 ) -> Optional[Dict[str, Any]]:
-    """Updates task name, url, and goal in database."""
+    """Updates task name and task_description in database."""
     if is_cloud_available():
         return cloud_db.update_task_details_cloud(
-            task_id=task_id, name=name, url=url, goal=goal
+            task_id=task_id, name=name, task_description=task_description
         )
 
     init_db()
@@ -114,10 +128,10 @@ def update_task_details(
         cursor.execute(
             """
             UPDATE tasks
-            SET name = ?, url = ?, goal = ?
+            SET name = ?, task_description = ?, goal = ?
             WHERE id = ?
             """,
-            (name, url, goal, task_id),
+            (name, task_description, task_description, task_id),
         )
         conn.commit()
         if cursor.rowcount > 0:
