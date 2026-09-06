@@ -43,16 +43,12 @@ def init_db():
             )
             """
         )
-        # Migrate table: add task_description if missing, drop legacy url/goal columns if present
+        # Migrate table: add task_description if missing
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(tasks)")
         columns = [column[1] for column in cursor.fetchall()]
         if "task_description" not in columns:
             cursor.execute("ALTER TABLE tasks ADD COLUMN task_description TEXT NOT NULL DEFAULT ''")
-        if "url" in columns:
-            cursor.execute("ALTER TABLE tasks DROP COLUMN url")
-        if "goal" in columns:
-            cursor.execute("ALTER TABLE tasks DROP COLUMN goal")
         conn.commit()
 
 
