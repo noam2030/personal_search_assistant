@@ -126,7 +126,16 @@ def test_fastapi_rest_endpoints():
         assert updated["last_status"] == "SUCCESS"
         assert updated["last_result"] == mock_gemini_json
 
-    # 7. Delete Task via DELETE /api/tasks/{id}
+    # 7. Mocked Batch Execute Tasks via POST /api/tasks/run-all (Cloud Scheduler endpoint)
+    with patch("backend.controller.extract_content", return_value=mock_gemini_json):
+        batch_res = client.post(f"/api/tasks/run-all?user_id={user_id}")
+        assert batch_res.status_code == 200
+        batch_data = batch_res.json()
+        assert batch_data["status"] == "completed"
+        assert batch_data["user_id"] == user_id
+        assert batch_data["tasks_executed"] == 1
+
+    # 8. Delete Task via DELETE /api/tasks/{id}
     del_res = client.delete(f"/api/tasks/{task_id}?user_id={user_id}")
     assert del_res.status_code == 200
 

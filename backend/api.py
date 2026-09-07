@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from backend import db
-from backend.controller import run_task_by_id
+from backend.controller import run_task_by_id, run_user_tasks
 
 router = APIRouter(prefix="/api")
 
@@ -86,6 +86,27 @@ def execute_task(task_id: int):
         return updated_task
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task execution failed: {str(e)}")
+
+
+@router.post("/tasks/run-all")
+def execute_all_tasks(user_id: str = Query(..., description="User ID whose tasks will be executed")):
+    """
+    Triggers live execution of all persistent tasks for a specific user.
+    Designed for automated execution via Google Cloud Scheduler.
+    """
+    if not user_id.strip():
+        raise HTTPException(status_code=400, detail="User ID is required.")
+
+    try:
+        results = run_user_tasks(user_id=user_id.strip())
+        return {
+            "status": "completed",
+            "user_id": user_id,
+            "tasks_executed": len(results),
+            "results": results,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Batch execution failed: {str(e)}")
 
 
 @router.delete("/tasks/{task_id}")
