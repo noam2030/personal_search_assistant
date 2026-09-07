@@ -131,9 +131,9 @@ def test_fastapi_rest_endpoints():
         batch_res = client.post(f"/api/tasks/run-all?user_id={user_id}")
         assert batch_res.status_code == 200
         batch_data = batch_res.json()
-        assert batch_data["status"] == "completed"
-        assert batch_data["user_id"] == user_id
-        assert batch_data["tasks_executed"] == 1
+        assert isinstance(batch_data, list)
+        assert len(batch_data) == 1
+        assert batch_data[0]["id"] == task_id
 
     # 8. Delete Task via DELETE /api/tasks/{id}
     del_res = client.delete(f"/api/tasks/{task_id}?user_id={user_id}")
