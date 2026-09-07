@@ -1,7 +1,25 @@
 import argparse
+import json
 import sys
 from backend.controller import run_task, run_user_tasks, run_task_by_id
 from backend import db
+
+
+def get_result_count(last_result: str | None) -> int | None:
+    if not last_result:
+        return None
+    try:
+        clean_raw = last_result.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(clean_raw)
+        if isinstance(parsed, list):
+            return len(parsed)
+        elif isinstance(parsed, dict):
+            for key in ["items", "results", "events", "data"]:
+                if isinstance(parsed.get(key), list):
+                    return len(parsed[key])
+        return 0
+    except Exception:
+        return None
 
 
 def main():
@@ -58,7 +76,9 @@ def main():
         for t in tasks:
             last_run = t["last_run_at"] or "Never"
             status = t["last_status"] or "Pending"
-            print(f"[{t['id']}] {t['name']} | Status: {status} | Last Run: {last_run}")
+            count = get_result_count(t.get("last_result"))
+            count_str = f" | Results: {count} item(s)" if count is not None else ""
+            print(f"[{t['id']}] {t['name']} | Status: {status}{count_str} | Last Run: {last_run}")
             print(f"    Description: {t['task_description']}\n")
 
     elif args.command == "run-tasks":
@@ -81,9 +101,11 @@ def main():
             return
         print(f"=== LATEST RUN RESULTS FOR USER '{args.user}' ===\n")
         for t in tasks:
+            count = get_result_count(t.get("last_result"))
+            count_str = f" ({count} items)" if count is not None else ""
             print(f"--- Task [{t['id']}] {t['name']} ---")
             print(f"Last Run : {t['last_run_at'] or 'Never'}")
-            print(f"Status   : {t['last_status'] or 'Pending'}")
+            print(f"Status   : {t['last_status'] or 'Pending'}{count_str}")
             if t["last_error"]:
                 print(f"Error    : {t['last_error']}")
             if t["last_result"]:

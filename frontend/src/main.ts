@@ -55,6 +55,24 @@ async function loadTasks(): Promise<void> {
   }
 }
 
+function getItemCount(rawResult?: string | null): number | null {
+  if (!rawResult) return null;
+  try {
+    const cleanRaw = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    const parsed = JSON.parse(cleanRaw);
+    if (Array.isArray(parsed)) return parsed.length;
+    if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.items)) return parsed.items.length;
+      if (Array.isArray(parsed.results)) return parsed.results.length;
+      if (Array.isArray(parsed.events)) return parsed.events.length;
+      if (Array.isArray(parsed.data)) return parsed.data.length;
+    }
+    return 0;
+  } catch {
+    return null;
+  }
+}
+
 function renderTaskList(tasks: Task[]): void {
   if (tasks.length === 0) {
     taskListContainer.innerHTML = '<p style="color: var(--text-muted);">No persistent tasks found. Click "➕ New Task" above to create your first task!</p>';
@@ -77,11 +95,18 @@ function renderTaskList(tasks: Task[]): void {
       : 'badge-pending';
 
     const viewMode = resultViewModes[task.id] || 'visual';
+    const resultCount = getItemCount(task.last_result);
+    const countBadge = resultCount !== null
+      ? `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 600;">📊 ${resultCount} ${resultCount === 1 ? 'Result' : 'Results'}</span>`
+      : '';
 
     card.innerHTML = `
       <div class="task-header">
         <span class="task-name">${escapeHtml(task.name)}</span>
-        <span class="badge ${badgeClass}">${status}</span>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          ${countBadge}
+          <span class="badge ${badgeClass}">${status}</span>
+        </div>
       </div>
       <div class="task-detail"><strong>Task Description:</strong> ${escapeHtml(task.task_description)}</div>
       <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
@@ -128,10 +153,12 @@ function renderTaskList(tasks: Task[]): void {
 function renderResultSection(rawResult: string, viewMode: 'visual' | 'raw'): string {
   const visualActiveClass = viewMode === 'visual' ? 'active' : '';
   const rawActiveClass = viewMode === 'raw' ? 'active' : '';
+  const count = getItemCount(rawResult);
+  const countLabel = count !== null ? ` (${count} ${count === 1 ? 'item' : 'items'})` : '';
 
   return `
     <div class="result-header">
-      <span class="result-header-title">Extraction Results</span>
+      <span class="result-header-title">Extraction Results${countLabel}</span>
       <div class="view-toggle-group">
         <button class="toggle-btn toggle-visual ${visualActiveClass}">Visual Cards</button>
         <button class="toggle-btn toggle-raw ${rawActiveClass}">Raw JSON</button>
