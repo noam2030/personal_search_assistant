@@ -34,4 +34,4 @@ jobs:
             --region us-central1 \
             --project plenary-line-507307-g7 \
             --allow-unauthenticated \
-            --set-env-vars GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+            --update-env-vars GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
