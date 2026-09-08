@@ -7,7 +7,7 @@
 set -euo pipefail
 
 USER_ID="${1:-noam}"
-SERVICE_URL="${2:-}"
+SERVICE_URL="${2:-https://personal-search-assistant-api-546552808845.us-central1.run.app}"
 TIMEZONE="${3:-Asia/Jerusalem}"
 JOB_NAME="evening-search-assistant-${USER_ID}"
 CRON_SCHEDULE="0 20 * * *" # Every day at 20:00 (8:00 PM)
