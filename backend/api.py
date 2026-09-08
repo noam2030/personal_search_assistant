@@ -88,7 +88,13 @@ def execute_task(task_id: int):
         raise HTTPException(status_code=500, detail=f"Task execution failed: {str(e)}")
 
 
-router.post("/tasks/run-all", response_model=List[TaskResponse])(run_user_tasks)
+@router.post("/tasks/run-all", response_model=List[TaskResponse])
+def run_all_tasks(user_id: str = Query(..., description="User ID to execute tasks for")):
+    """Triggers live execution of all persistent tasks for a user."""
+    if not user_id.strip():
+        raise HTTPException(status_code=400, detail="User ID is required.")
+
+    return run_user_tasks(user_id=user_id.strip())
 
 
 @router.delete("/tasks/{task_id}")
