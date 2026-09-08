@@ -1,6 +1,6 @@
 import os
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
@@ -164,8 +164,41 @@ def test_e2e_live_api():
         print(f"[E2E Test] Live API test skipped due to environment constraint: {e}\n")
 
 
+from backend.notifier import format_telegram_message, send_telegram_notification
+
+
+def test_telegram_notifier():
+    print("[E2E Test] Testing Telegram notification module...")
+    mock_results = [{
+        "id": 1,
+        "name": "Tel Aviv Java Jobs",
+        "last_status": "SUCCESS",
+        "last_result": json.dumps({"items": [{"title": "Senior Java Developer", "link": "https://example.com/job"}]}),
+        "last_error": None,
+    }]
+    formatted = format_telegram_message("noam", mock_results)
+    assert "Tel Aviv Java Jobs" in formatted
+    assert "Senior Java Developer" in formatted
+
+    # Test skipped notification when tokens absent
+    with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": ""}):
+        assert send_telegram_notification("noam", mock_results) is False
+
+    # Test successful notification with mocked httpx.post
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123", "TELEGRAM_CHAT_ID": "456"}):
+        with patch("httpx.post", return_value=mock_resp) as mock_post:
+            success = send_telegram_notification("noam", mock_results)
+            assert success is True
+            mock_post.assert_called_once()
+
+    print("[E2E Test] Telegram notification tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
+    test_telegram_notifier()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

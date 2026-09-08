@@ -1,6 +1,7 @@
 import json
 from backend.extractor import extract_content
 from backend.logger import write_debug_log
+from backend.notifier import send_telegram_notification
 from backend import db
 
 
@@ -90,5 +91,7 @@ def run_user_tasks(user_id: str) -> list[dict]:
         updated_task = run_task_by_id(task_id=task["id"])
         if updated_task:
             results.append(updated_task)
+
+    send_telegram_notification(user_id=user_id, results=results)
 
     return results
