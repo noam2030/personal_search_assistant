@@ -4,6 +4,7 @@ from typing import Optional, List
 
 from backend import db
 from backend.controller import run_task_by_id, run_user_tasks
+from backend.notifier import send_telegram_notification
 
 router = APIRouter(prefix="/api")
 
@@ -90,11 +91,13 @@ def execute_task(task_id: int):
 
 @router.post("/tasks/run-all", response_model=List[TaskResponse])
 def run_all_tasks(user_id: str = Query(..., description="User ID to execute tasks for")):
-    """Triggers live execution of all persistent tasks for a user."""
+    """Triggers live execution of all persistent tasks for a user and dispatches Telegram notification."""
     if not user_id.strip():
         raise HTTPException(status_code=400, detail="User ID is required.")
 
-    return run_user_tasks(user_id=user_id.strip())
+    results = run_user_tasks(user_id=user_id.strip())
+    send_telegram_notification(user_id=user_id.strip(), results=results)
+    return results
 
 
 @router.delete("/tasks/{task_id}")
