@@ -56,22 +56,30 @@ h1 {
 }
 
 .btn-primary-action {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
   color: white;
-  border: none;
-  padding: 0.65rem 1.3rem;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.65rem 1.25rem;
+  border-radius: 50px;
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  white-space: nowrap;
 }
 
 .btn-primary-action:hover {
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+
+.btn-primary-action:active {
+  transform: scale(0.96);
 }
 
 .user-selector {
@@ -462,4 +470,68 @@ pre {
   display: flex;
   gap: 0.8rem;
   margin-top: 1.5rem;
+}
+
+/* -------------------------------------------------------------------------
+   Mobile Floating Action Button (FAB) & Mobile Responsiveness
+   ------------------------------------------------------------------------- */
+.mobile-fab {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 1.4rem;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 990;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-fab:active {
+  transform: scale(0.92);
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 1rem 0.75rem;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .btn-primary-action {
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
+  }
+
+  .user-selector {
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .mobile-fab {
+    display: flex;
+  }
 }
