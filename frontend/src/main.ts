@@ -267,12 +267,6 @@ async function handleDeleteTask(taskId: number): Promise<void> {
 
 // Modal Event Listeners
 openCreateTaskModalBtn.addEventListener('click', () => openModal('create'));
-
-const mobileCreateTaskFab = document.getElementById('mobileCreateTaskFab') as HTMLButtonElement | null;
-if (mobileCreateTaskFab) {
-  mobileCreateTaskFab.addEventListener('click', () => openModal('create'));
-}
-
 closeTaskModalBtn.addEventListener('click', closeModal);
 cancelTaskModalBtn.addEventListener('click', closeModal);
 
