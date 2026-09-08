@@ -15,9 +15,8 @@ const createTaskForm = document.getElementById('createTaskForm') as HTMLFormElem
 const taskDescriptionInput = document.getElementById('taskDescription') as HTMLTextAreaElement;
 const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
 
-// Running, Editing & View Mode State
+// Running & Editing State
 const runningTasks: Record<number, boolean> = {};
-const resultViewModes: Record<number, 'visual' | 'raw'> = {};
 let editingTaskId: number | null = null;
 
 function openModal(mode: 'create' | 'edit', task?: Task): void {
@@ -94,7 +93,6 @@ function renderTaskList(tasks: Task[]): void {
       ? 'badge-failed'
       : 'badge-pending';
 
-    const viewMode = resultViewModes[task.id] || 'visual';
     const resultCount = getItemCount(task.last_result);
     const countBadge = resultCount !== null
       ? `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 600;">📊 ${resultCount} ${resultCount === 1 ? 'Result' : 'Results'}</span>`
@@ -120,7 +118,7 @@ function renderTaskList(tasks: Task[]): void {
       </div>
 
       ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
-      ${task.last_result ? renderResultSection(task.last_result, viewMode) : ''}
+      ${task.last_result ? renderResultSection(task.last_result) : ''}
     `;
 
     const runBtn = card.querySelector('.run-btn') as HTMLButtonElement;
@@ -132,45 +130,25 @@ function renderTaskList(tasks: Task[]): void {
     const deleteBtn = card.querySelector('.delete-btn') as HTMLButtonElement;
     deleteBtn.addEventListener('click', () => handleDeleteTask(task.id));
 
-    const visualToggle = card.querySelector('.toggle-visual') as HTMLButtonElement | null;
-    const rawToggle = card.querySelector('.toggle-raw') as HTMLButtonElement | null;
-
-    if (visualToggle && rawToggle) {
-      visualToggle.addEventListener('click', () => {
-        resultViewModes[task.id] = 'visual';
-        loadTasks();
-      });
-      rawToggle.addEventListener('click', () => {
-        resultViewModes[task.id] = 'raw';
-        loadTasks();
-      });
-    }
-
     taskListContainer.appendChild(card);
   });
 }
 
-function renderResultSection(rawResult: string, viewMode: 'visual' | 'raw'): string {
-  const visualActiveClass = viewMode === 'visual' ? 'active' : '';
-  const rawActiveClass = viewMode === 'raw' ? 'active' : '';
+function renderResultSection(rawResult: string): string {
   const count = getItemCount(rawResult);
   const countLabel = count !== null ? ` (${count} ${count === 1 ? 'item' : 'items'})` : '';
 
   return `
     <div class="result-header">
       <span class="result-header-title">Extraction Results${countLabel}</span>
-      <div class="view-toggle-group">
-        <button class="toggle-btn toggle-visual ${visualActiveClass}">Visual Cards</button>
-        <button class="toggle-btn toggle-raw ${rawActiveClass}">Raw JSON</button>
-      </div>
     </div>
     <div class="result-container">
-      ${viewMode === 'visual' ? renderVisualCards(rawResult) : `<pre>${escapeHtml(formatJson(rawResult))}</pre>`}
+      ${renderVisualText(rawResult)}
     </div>
   `;
 }
 
-function renderVisualCards(rawResult: string): string {
+function renderVisualText(rawResult: string): string {
   try {
     const cleanRaw = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     const parsed = JSON.parse(cleanRaw);
@@ -198,14 +176,14 @@ function renderVisualCards(rawResult: string): string {
       `;
     }
 
-    const cardsHtml = items.map((item) => renderSingleItemCard(item)).join('');
-    return `<div class="result-cards-grid">${cardsHtml}</div>`;
+    const itemsHtml = items.map((item) => renderSingleItemText(item)).join('');
+    return `<div class="result-text-list">${itemsHtml}</div>`;
   } catch {
-    return `<pre>${escapeHtml(rawResult)}</pre>`;
+    return `<div class="result-text-content">${escapeHtml(rawResult)}</div>`;
   }
 }
 
-function renderSingleItemCard(item: any): string {
+function renderSingleItemText(item: any): string {
   if (typeof item !== 'object' || item === null) {
     return `<div class="result-item-card"><div class="result-item-title">${escapeHtml(String(item))}</div></div>`;
   }
@@ -313,16 +291,6 @@ userIdInput.addEventListener('change', () => loadTasks());
 // Helper functions
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function formatJson(raw: string): string {
-  try {
-    const cleanRaw = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-    const parsed = JSON.parse(cleanRaw);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return raw;
-  }
 }
 
 // Initial Load

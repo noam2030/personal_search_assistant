@@ -251,7 +251,7 @@ button:disabled {
 }
 
 /* -------------------------------------------------------------------------
-   Result Section & Visual Item Cards UI
+   Result Section & Visual Item UI
    ------------------------------------------------------------------------- */
 .result-header {
   display: flex;
@@ -265,31 +265,6 @@ button:disabled {
   font-size: 0.9rem;
   font-weight: 600;
   color: #cbd5e1;
-}
-
-.view-toggle-group {
-  display: flex;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 2px;
-}
-
-.toggle-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 0.25rem 0.6rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.toggle-btn.active {
-  background: var(--primary);
-  color: white;
 }
 
 .result-container {
@@ -308,10 +283,18 @@ pre {
   white-space: pre-wrap;
 }
 
+.result-text-list,
 .result-cards-grid {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+}
+
+.result-text-content {
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .result-item-card {
