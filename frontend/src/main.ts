@@ -95,7 +95,7 @@ function renderTaskList(tasks: Task[]): void {
 
     const resultCount = getItemCount(task.last_result);
     const countBadge = resultCount !== null
-      ? `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 600;">📊 ${resultCount} ${resultCount === 1 ? 'Result' : 'Results'}</span>`
+      ? `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 600;">${resultCount} ${resultCount === 1 ? 'Result' : 'Results'}</span>`
       : '';
 
     card.innerHTML = `
@@ -135,12 +135,9 @@ function renderTaskList(tasks: Task[]): void {
 }
 
 function renderResultSection(rawResult: string): string {
-  const count = getItemCount(rawResult);
-  const countLabel = count !== null ? ` (${count} ${count === 1 ? 'item' : 'items'})` : '';
-
   return `
     <div class="result-header">
-      <span class="result-header-title">Extraction Results${countLabel}</span>
+      <span class="result-header-title">Extraction Results</span>
     </div>
     <div class="result-container">
       ${renderVisualText(rawResult)}
