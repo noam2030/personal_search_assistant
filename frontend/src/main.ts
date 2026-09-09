@@ -1,9 +1,10 @@
 import { Task } from './types';
-import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById } from './api';
+import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById, runAllTasks } from './api';
 
 // DOM Element References
 const userIdInput = document.getElementById('userIdInput') as HTMLInputElement;
 const refreshTasksBtn = document.getElementById('refreshTasksBtn') as HTMLButtonElement;
+const runAllTasksBtn = document.getElementById('runAllTasksBtn') as HTMLButtonElement;
 const openCreateTaskModalBtn = document.getElementById('openCreateTaskModalBtn') as HTMLButtonElement;
 const closeTaskModalBtn = document.getElementById('closeTaskModalBtn') as HTMLButtonElement;
 const cancelTaskModalBtn = document.getElementById('cancelTaskModalBtn') as HTMLButtonElement;
@@ -281,6 +282,30 @@ createTaskForm.addEventListener('submit', async (e) => {
 
 refreshTasksBtn.addEventListener('click', () => loadTasks());
 userIdInput.addEventListener('change', () => loadTasks());
+
+let isRunningAll = false;
+
+async function handleRunAllTasks(): Promise<void> {
+  if (isRunningAll) return;
+  const userId = userIdInput.value.trim() || 'noam';
+
+  isRunningAll = true;
+  runAllTasksBtn.disabled = true;
+  runAllTasksBtn.innerHTML = '<div class="spinner"></div> Running All...';
+
+  try {
+    await runAllTasks(userId);
+  } catch (error) {
+    alert(`Batch execution failed: ${(error as Error).message}`);
+  } finally {
+    isRunningAll = false;
+    runAllTasksBtn.disabled = false;
+    runAllTasksBtn.innerHTML = '▶ Run All';
+    await loadTasks();
+  }
+}
+
+runAllTasksBtn.addEventListener('click', handleRunAllTasks);
 
 // Helper functions
 function escapeHtml(str: string): string {

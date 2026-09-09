@@ -56,3 +56,14 @@ export async function deleteTaskById(taskId: number, userId: string): Promise<vo
     throw new Error(`Failed to delete task: ${response.statusText}`);
   }
 }
+
+export async function runAllTasks(userId: string): Promise<Task[]> {
+  const response = await fetch(`${API_BASE_URL}/api/tasks/run-all?user_id=${encodeURIComponent(userId)}`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(errorData.detail || 'Batch task execution failed');
+  }
+  return response.json();
+}
