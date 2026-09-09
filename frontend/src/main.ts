@@ -104,7 +104,7 @@ function renderTaskList(tasks: Task[]): void {
       
       <div class="task-actions">
         <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
-          ${isRunning ? '<div class="spinner"></div> Running...' : '▶ Run Task'}
+          ${isRunning ? '<div class="spinner"></div> Running...' : 'Run Task'}
         </button>
         <button class="btn-secondary edit-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>✏️ Edit</button>
         <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
@@ -300,7 +300,7 @@ async function handleRunAllTasks(): Promise<void> {
   } finally {
     isRunningAll = false;
     runAllTasksBtn.disabled = false;
-    runAllTasksBtn.innerHTML = '▶ Run All';
+    runAllTasksBtn.innerHTML = 'Run All';
     await loadTasks();
   }
 }
