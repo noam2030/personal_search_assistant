@@ -111,7 +111,7 @@ function renderTaskList(tasks: Task[]): void {
       </div>
 
       ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
-      ${task.last_result ? renderResultSection(task.last_result) : ''}
+      ${task.last_result ? renderResultSection(task.last_result, task.id) : ''}
     `;
 
     const runBtn = card.querySelector('.run-btn') as HTMLButtonElement;
@@ -123,11 +123,29 @@ function renderTaskList(tasks: Task[]): void {
     const deleteBtn = card.querySelector('.delete-btn') as HTMLButtonElement;
     deleteBtn.addEventListener('click', () => handleDeleteTask(task.id));
 
+    const expandBtn = card.querySelector('.expand-results-btn') as HTMLButtonElement | null;
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        const extraContainer = card.querySelector(`#extra-results-${task.id}`) as HTMLDivElement | null;
+        if (extraContainer) {
+          const isHidden = extraContainer.classList.contains('hidden');
+          const extraCount = expandBtn.getAttribute('data-extra-count') || '';
+          if (isHidden) {
+            extraContainer.classList.remove('hidden');
+            expandBtn.innerHTML = '▲ Show less';
+          } else {
+            extraContainer.classList.add('hidden');
+            expandBtn.innerHTML = `••• Show ${extraCount} more ${extraCount === '1' ? 'item' : 'items'}`;
+          }
+        }
+      });
+    }
+
     taskListContainer.appendChild(card);
   });
 }
 
-function renderResultSection(rawResult: string): string {
+function renderResultSection(rawResult: string, taskId: number): string {
   const count = getItemCount(rawResult);
   const headerBadge = count !== null
     ? `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 600; font-size: 0.85rem; padding: 0.3rem 0.7rem;">${count} ${count === 1 ? 'Result' : 'Results'}</span>`
@@ -138,12 +156,12 @@ function renderResultSection(rawResult: string): string {
       ${headerBadge}
     </div>
     <div class="result-container">
-      ${renderVisualText(rawResult)}
+      ${renderVisualText(rawResult, taskId)}
     </div>
   `;
 }
 
-function renderVisualText(rawResult: string): string {
+function renderVisualText(rawResult: string, taskId: number): string {
   try {
     const cleanRaw = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     const parsed = JSON.parse(cleanRaw);
@@ -171,8 +189,25 @@ function renderVisualText(rawResult: string): string {
       `;
     }
 
-    const itemsHtml = items.map((item) => renderSingleItemText(item)).join('');
-    return `<div class="result-text-list">${itemsHtml}</div>`;
+    if (items.length === 1) {
+      return `<div class="result-text-list">${renderSingleItemText(items[0])}</div>`;
+    }
+
+    const firstItemHtml = renderSingleItemText(items[0]);
+    const remainingItemsHtml = items.slice(1).map((item) => renderSingleItemText(item)).join('');
+    const extraCount = items.length - 1;
+
+    return `
+      <div class="result-text-list">
+        ${firstItemHtml}
+        <div class="extra-results-container hidden" id="extra-results-${taskId}">
+          ${remainingItemsHtml}
+        </div>
+        <button class="expand-results-btn" data-task-id="${taskId}" data-extra-count="${extraCount}">
+          ••• Show ${extraCount} more ${extraCount === 1 ? 'item' : 'items'}
+        </button>
+      </div>
+    `;
   } catch {
     return `<div class="result-text-content">${escapeHtml(rawResult)}</div>`;
   }
