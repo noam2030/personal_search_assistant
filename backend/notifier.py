@@ -1,7 +1,7 @@
 import os
 import json
 import httpx
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
@@ -10,7 +10,7 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
     """
     lines = [
         "🔍 *Personal Search Assistant*",
-        f"📅 Daily Run Summary for user `{user_id}`",
+        f"📅 Run Summary for user `{user_id}`",
         "----------------------------------------",
     ]
 
@@ -23,7 +23,7 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
         status = task.get("last_status", "UNKNOWN")
         icon = "✅" if status == "SUCCESS" else "❌"
 
-        lines.append(f"\n{icon} *{name}*")
+        lines.append(f"\n{icon} *{name}* (ID: `{task.get('id')}`) ")
 
         if status == "FAILED":
             err = task.get("last_error") or "Unknown error"
@@ -79,22 +79,21 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def send_telegram_notification(user_id: str, results: List[Dict[str, Any]]) -> bool:
+def send_telegram_message(text: str, chat_id: Optional[str] = None) -> bool:
     """
-    Sends execution summary message to Telegram Bot if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are configured.
+    Sends raw text message to Telegram Bot using configured TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.
     """
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    target_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
 
-    if not bot_token or not chat_id:
-        print("[Notifier] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured. Skipping Telegram notification.")
+    if not bot_token or not target_chat_id:
+        print("[Notifier] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured. Skipping Telegram message.")
         return False
 
-    message_text = format_telegram_message(user_id, results)
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
-        "chat_id": chat_id,
-        "text": message_text,
+        "chat_id": target_chat_id,
+        "text": text,
         "parse_mode": "Markdown",
         "disable_web_page_preview": True,
     }
@@ -102,11 +101,19 @@ def send_telegram_notification(user_id: str, results: List[Dict[str, Any]]) -> b
     try:
         response = httpx.post(url, json=payload, timeout=10.0)
         if response.status_code == 200:
-            print(f"✓ Telegram notification sent successfully to chat_id '{chat_id}'.")
+            print(f"✓ Telegram message sent successfully to chat_id '{target_chat_id}'.")
             return True
         else:
-            print(f"✗ Failed to send Telegram notification (HTTP {response.status_code}): {response.text}")
+            print(f"✗ Failed to send Telegram message (HTTP {response.status_code}): {response.text}")
             return False
     except Exception as e:
-        print(f"✗ Telegram notification exception: {e}")
+        print(f"✗ Telegram message exception: {e}")
         return False
+
+
+def send_telegram_notification(user_id: str, results: List[Dict[str, Any]]) -> bool:
+    """
+    Sends execution summary message to Telegram Bot reusing send_telegram_message.
+    """
+    message_text = format_telegram_message(user_id, results)
+    return send_telegram_message(text=message_text)

@@ -1,7 +1,11 @@
+import os
 import json
+from typing import Dict, Any
+
 from backend.extractor import extract_content
 from backend.logger import write_debug_log
 from backend import db
+from backend.notifier import send_telegram_message
 
 
 def run_task(task_description: str) -> str:
@@ -92,3 +96,36 @@ def run_user_tasks(user_id: str) -> list[dict]:
             results.append(updated_task)
 
     return results
+
+
+def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Stage 1 Telegram Webhook Handler:
+    Extracts text and chat_id from incoming update, prints text to console logs,
+    and sends a simple confirmation reply back to Telegram.
+    """
+    message = payload.get("message") or payload.get("edited_message")
+    if not message or "text" not in message:
+        return {"status": "ignored", "reason": "No text message in update"}
+
+    chat_id = str(message.get("chat", {}).get("id"))
+    text = message.get("text", "").strip()
+
+    # Stage 1: Print received message details to backend logs
+    print(f"\n========================================")
+    print(f"[Telegram Webhook Stage 1]")
+    print(f"Chat ID: {chat_id}")
+    print(f"Message Text: {text}")
+    print(f"========================================\n")
+
+    # Security check: verify incoming chat_id matches TELEGRAM_CHAT_ID (if configured)
+    allowed_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if allowed_chat_id and chat_id != str(allowed_chat_id):
+        print(f"[Webhook] Rejected unauthorized update from chat_id: {chat_id}")
+        return {"status": "rejected", "reason": "Unauthorized chat_id"}
+
+    # Stage 1: Echo reply back to Telegram
+    reply_text = f"📩 *Message Received (Stage 1)*\n\nText: `{text}`"
+    send_telegram_message(text=reply_text, chat_id=chat_id)
+
+    return {"status": "ok", "chat_id": chat_id, "text": text}

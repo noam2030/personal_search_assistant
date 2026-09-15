@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from backend import db
-from backend.controller import run_task_by_id, run_user_tasks
+from backend.controller import run_task_by_id, run_user_tasks, handle_telegram_update
 from backend.notifier import send_telegram_notification
 
 router = APIRouter(prefix="/api")
@@ -107,3 +107,16 @@ def delete_task(task_id: int, user_id: Optional[str] = Query(None)):
     if not success:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found.")
     return {"status": "deleted", "id": task_id}
+
+
+@router.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """
+    Receives incoming Telegram updates via HTTP POST requests from Telegram servers.
+    """
+    try:
+        payload = await request.json()
+        return handle_telegram_update(payload)
+    except Exception as e:
+        print(f"[Webhook Exception] {e}")
+        return {"status": "error", "message": str(e)}

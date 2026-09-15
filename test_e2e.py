@@ -196,9 +196,35 @@ def test_telegram_notifier():
     print("[E2E Test] Telegram notification tests passed!\n")
 
 
+def test_telegram_webhook_commands():
+    print("[E2E Test] Testing Telegram Webhook Stage 1 Message Ingestion...")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+
+    with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123", "TELEGRAM_CHAT_ID": "999"}):
+        with patch("httpx.post", return_value=mock_resp) as mock_post:
+            # 1. Test incoming text message payload
+            update_msg = {"message": {"chat": {"id": 999}, "text": "Hello Search Assistant!"}}
+            res_msg = client.post("/api/telegram/webhook", json=update_msg)
+            assert res_msg.status_code == 200
+            data = res_msg.json()
+            assert data["status"] == "ok"
+            assert data["chat_id"] == "999"
+            assert data["text"] == "Hello Search Assistant!"
+
+            # 2. Test unauthorized chat_id rejection
+            update_unauth = {"message": {"chat": {"id": 888}, "text": "Unauthorized message"}}
+            res_unauth = client.post("/api/telegram/webhook", json=update_unauth)
+            assert res_unauth.status_code == 200
+            assert res_unauth.json()["status"] == "rejected"
+
+    print("[E2E Test] Telegram Webhook Stage 1 tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
     test_telegram_notifier()
+    test_telegram_webhook_commands()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
