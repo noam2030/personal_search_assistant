@@ -196,9 +196,44 @@ def test_telegram_notifier():
     print("[E2E Test] Telegram notification tests passed!\n")
 
 
+def test_telegram_webhook_commands():
+    print("[E2E Test] Testing Interactive Telegram Webhook Commands...")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+
+    with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123", "TELEGRAM_CHAT_ID": "999"}):
+        with patch("httpx.post", return_value=mock_resp) as mock_post:
+            # 1. Test /help command
+            update_help = {"message": {"chat": {"id": 999}, "text": "/help"}}
+            res_help = client.post("/api/telegram/webhook", json=update_help)
+            assert res_help.status_code == 200
+            assert res_help.json()["status"] == "ok"
+
+            # 2. Test /add command
+            update_add = {"message": {"chat": {"id": 999}, "text": "/add find me python developer jobs"}}
+            res_add = client.post("/api/telegram/webhook", json=update_add)
+            assert res_add.status_code == 200
+            assert res_add.json()["status"] == "ok"
+
+            # 3. Test /tasks command
+            update_tasks = {"message": {"chat": {"id": 999}, "text": "/tasks"}}
+            res_tasks = client.post("/api/telegram/webhook", json=update_tasks)
+            assert res_tasks.status_code == 200
+            assert res_tasks.json()["status"] == "ok"
+
+            # 4. Test unauthorized chat_id rejection
+            update_unauth = {"message": {"chat": {"id": 888}, "text": "/tasks"}}
+            res_unauth = client.post("/api/telegram/webhook", json=update_unauth)
+            assert res_unauth.status_code == 200
+            assert res_unauth.json()["status"] == "rejected"
+
+    print("[E2E Test] Interactive Telegram Webhook Command tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
     test_telegram_notifier()
+    test_telegram_webhook_commands()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
