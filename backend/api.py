@@ -3,8 +3,8 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 from backend import db
-from backend.controller import run_task_by_id, run_user_tasks
-from backend.notifier import send_telegram_notification, handle_telegram_update
+from backend.controller import run_task_by_id, run_user_tasks, handle_telegram_update
+from backend.notifier import send_telegram_notification
 
 router = APIRouter(prefix="/api")
 
