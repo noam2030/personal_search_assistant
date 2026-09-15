@@ -211,15 +211,23 @@ def cmd_delete_task(user_id: str, task_id_str: str) -> str:
 
 def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Parses an incoming Telegram Update payload, checks authorized chat_id,
-    executes requested command, and sends reply message back to the chat.
+    Stage 1 Telegram Webhook Handler:
+    Extracts text and chat_id from incoming update, prints text to console logs,
+    and sends a simple confirmation reply back to Telegram.
     """
     message = payload.get("message") or payload.get("edited_message")
     if not message or "text" not in message:
-        return {"status": "ignored", "reason": "No text message"}
+        return {"status": "ignored", "reason": "No text message in update"}
 
     chat_id = str(message.get("chat", {}).get("id"))
     text = message.get("text", "").strip()
+
+    # Stage 1: Print received message details to backend logs
+    print(f"\n========================================")
+    print(f"[Telegram Webhook Stage 1]")
+    print(f"Chat ID: {chat_id}")
+    print(f"Message Text: {text}")
+    print(f"========================================\n")
 
     # Security check: verify incoming chat_id matches TELEGRAM_CHAT_ID (if configured)
     allowed_chat_id = os.getenv("TELEGRAM_CHAT_ID")
@@ -227,26 +235,8 @@ def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[Webhook] Rejected unauthorized update from chat_id: {chat_id}")
         return {"status": "rejected", "reason": "Unauthorized chat_id"}
 
-    user_id = os.getenv("DEFAULT_USER_ID", "noam")
-
-    if text.startswith("/tasks") or text.startswith("/list"):
-        reply_text = cmd_list_tasks(user_id)
-    elif text.startswith("/add"):
-        desc = text[4:].strip()
-        reply_text = cmd_add_task(user_id, desc)
-    elif text.startswith("/runall"):
-        reply_text = cmd_run_all_tasks(user_id)
-    elif text.startswith("/run"):
-        task_id_str = text[4:].strip()
-        reply_text = cmd_run_task(task_id_str)
-    elif text.startswith("/delete"):
-        task_id_str = text[7:].strip()
-        reply_text = cmd_delete_task(user_id, task_id_str)
-    elif text.startswith("/start") or text.startswith("/help"):
-        reply_text = cmd_help_menu()
-    else:
-        # Plain text without slash command -> automatically create new task!
-        reply_text = cmd_add_task(user_id, text)
-
+    # Stage 1: Echo reply back to Telegram
+    reply_text = f"📩 *Message Received (Stage 1)*\n\nText: `{text}`"
     send_telegram_message(text=reply_text, chat_id=chat_id)
-    return {"status": "ok", "command": text}
+
+    return {"status": "ok", "chat_id": chat_id, "text": text}
