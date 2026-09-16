@@ -100,10 +100,12 @@ def run_user_tasks(user_id: str) -> list[dict]:
 
 def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Stage 1 Telegram Webhook Handler:
-    Extracts text and chat_id from incoming update, prints text to console logs,
-    and sends a simple confirmation reply back to Telegram.
+    AI Agent Telegram Webhook Handler:
+    Extracts message text, verifies chat_id, dispatches to Gemini AI Agent intent processor,
+    and sends the formatted intelligent response back to Telegram.
     """
+    from backend.agent import process_telegram_intent
+
     message = payload.get("message") or payload.get("edited_message")
     if not message or "text" not in message:
         return {"status": "ignored", "reason": "No text message in update"}
@@ -111,9 +113,8 @@ def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
     chat_id = str(message.get("chat", {}).get("id"))
     text = message.get("text", "").strip()
 
-    # Stage 1: Print received message details to backend logs
     print(f"\n========================================")
-    print(f"[Telegram Webhook Stage 1]")
+    print(f"[Telegram AI Agent Dispatcher]")
     print(f"Chat ID: {chat_id}")
     print(f"Message Text: {text}")
     print(f"========================================\n")
@@ -124,8 +125,8 @@ def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[Webhook] Rejected unauthorized update from chat_id: {chat_id}")
         return {"status": "rejected", "reason": "Unauthorized chat_id"}
 
-    # Stage 1: Echo reply back to Telegram
-    reply_text = f"📩 *Message Received (Stage 1)*\n\nText: `{text}`"
-    send_telegram_message(text=reply_text, chat_id=chat_id)
+    user_id = os.getenv("DEFAULT_USER_ID", "noam")
+    reply_text = process_telegram_intent(user_id=user_id, message_text=text)
 
+    send_telegram_message(text=reply_text, chat_id=chat_id)
     return {"status": "ok", "chat_id": chat_id, "text": text}
