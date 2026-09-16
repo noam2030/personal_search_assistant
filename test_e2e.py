@@ -197,28 +197,37 @@ def test_telegram_notifier():
 
 
 def test_telegram_webhook_commands():
-    print("[E2E Test] Testing Telegram Webhook Stage 1 Message Ingestion...")
+    print("[E2E Test] Testing AI Agent Telegram Webhook Intent Dispatcher...")
     mock_resp = MagicMock()
     mock_resp.status_code = 200
 
     with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123", "TELEGRAM_CHAT_ID": "999"}):
         with patch("httpx.post", return_value=mock_resp) as mock_post:
-            # 1. Test incoming text message payload
-            update_msg = {"message": {"chat": {"id": 999}, "text": "Hello Search Assistant!"}}
-            res_msg = client.post("/api/telegram/webhook", json=update_msg)
-            assert res_msg.status_code == 200
-            data = res_msg.json()
-            assert data["status"] == "ok"
-            assert data["chat_id"] == "999"
-            assert data["text"] == "Hello Search Assistant!"
+            # 1. Test conversational greeting
+            update_hello = {"message": {"chat": {"id": 999}, "text": "Hello, who are you?"}}
+            res_hello = client.post("/api/telegram/webhook", json=update_hello)
+            assert res_hello.status_code == 200
+            assert res_hello.json()["status"] == "ok"
 
-            # 2. Test unauthorized chat_id rejection
+            # 2. Test intent creation (new search task)
+            update_add = {"message": {"chat": {"id": 999}, "text": "Find me senior python jobs in Tel Aviv"}}
+            res_add = client.post("/api/telegram/webhook", json=update_add)
+            assert res_add.status_code == 200
+            assert res_add.json()["status"] == "ok"
+
+            # 3. Test list tasks intent
+            update_list = {"message": {"chat": {"id": 999}, "text": "Show me my current tasks"}}
+            res_list = client.post("/api/telegram/webhook", json=update_list)
+            assert res_list.status_code == 200
+            assert res_list.json()["status"] == "ok"
+
+            # 4. Test unauthorized chat_id rejection
             update_unauth = {"message": {"chat": {"id": 888}, "text": "Unauthorized message"}}
             res_unauth = client.post("/api/telegram/webhook", json=update_unauth)
             assert res_unauth.status_code == 200
             assert res_unauth.json()["status"] == "rejected"
 
-    print("[E2E Test] Telegram Webhook Stage 1 tests passed!\n")
+    print("[E2E Test] AI Agent Telegram Webhook Intent Dispatcher tests passed!\n")
 
 
 if __name__ == "__main__":
