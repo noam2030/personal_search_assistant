@@ -17,18 +17,26 @@ A structured runbook for executing tests, validating backend services, and verif
 Before running tests or launching services, ensure the environment is configured:
 
 1. **Python Virtual Environment**:
-   - Location: `.venv/` in the project root.
-   - Use the environment binary: `.venv/bin/python`.
+   - Location: `venv/` (or `.venv/`) in the project root.
+   - Use the environment binary: `venv/bin/python` / `venv/bin/pytest`.
 2. **Environment Variables (`.env`)**:
    - `GEMINI_API_KEY`: Required for live Google Search Grounding and intent dispatching.
    - `TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID`: Optional; mocked or skipped automatically in tests if omitted.
    - `DATABASE_URL`: Defaults to local SQLite (`assistant.db`) when not on Google Cloud Run (`K_SERVICE` unset).
 
+> [!IMPORTANT]
+> **MANDATORY: Run Tests ONLY via Virtual Environment (`venv/bin/pytest`)**
+> Never run global `pytest` or system-wide python test runners. Always execute tests strictly through the virtual environment binary:
+> ```bash
+> venv/bin/pytest test_e2e.py
+> ```
+> (or `.venv/bin/pytest test_e2e.py`). Global tools may lack dependencies or fail with environment mismatches.
+
 ---
 
 ## 2. Automated End-to-End Test Suite
 
-The primary automated test script is [test_e2e.py](../../../test_e2e.py). It covers:
+The primary automated test suite is [test_e2e.py](../../../test_e2e.py). It covers:
 
 1. **Database CRUD (`backend/db.py`)**: Task creation, retrieval, updates, status changes, and deletion.
 2. **FastAPI Endpoints (`backend/api.py`, `backend/main.py`)**:
@@ -41,21 +49,28 @@ The primary automated test script is [test_e2e.py](../../../test_e2e.py). It cov
 4. **AI Agent Telegram Webhook (`backend/agent/classify_agent.py`)**: Intent classification, conversational routing, and chat ID authorization.
 5. **Live Search API**: Executes live web search with Gemini Search Grounding if `GEMINI_API_KEY` is present.
 
-### Running the E2E Test Suite
+### Running the Test Suite
 
-You can execute the automated checks using the bundled helper script or via Python directly:
+> [!CAUTION]
+> Always execute test commands via the project's virtual environment (`venv/bin/pytest` or `.venv/bin/pytest`). Do NOT use system `pytest`.
 
 ```bash
-# Option A: Using the helper script
-./.agents/skills/search-assistant-testing/scripts/run_checks.sh
+# Option A: Execute all tests using virtual env pytest (Primary & Recommended)
+venv/bin/pytest test_e2e.py
 
-# Option B: Direct python execution
-.venv/bin/python test_e2e.py
+# Option B: Run with verbose output
+venv/bin/pytest test_e2e.py -v
+
+# Option C: Run a specific test function
+venv/bin/pytest test_e2e.py -k "test_ai_agent_telegram_webhook" -v
+
+# Option D: Using the bundled runner script
+./.agents/skills/search-assistant-testing/scripts/run_checks.sh
 ```
 
 ### Expected Output
-- All subtests output `[E2E Test] ... passed!`.
-- Concludes with `All E2E tests completed successfully!` and exit code `0`.
+- Pytest collects all test cases and reports passes: `===== 5 passed in ... =====`.
+- Concludes with exit code `0`.
 
 ---
 
