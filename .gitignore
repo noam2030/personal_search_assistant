@@ -1,5 +1,7 @@
 # Python Virtual Environment
 .venv/
+venv/
+venv
 
 # Environment keys & secrets
 .env
