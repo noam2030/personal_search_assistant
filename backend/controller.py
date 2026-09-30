@@ -2,7 +2,7 @@ import os
 import json
 from typing import Dict, Any
 
-from backend.extractor import extract_content
+from backend.agent.extract_content_agent import extract_content
 from backend.logger import write_debug_log
 from backend import db
 from backend.notifier import send_telegram_message
@@ -104,7 +104,7 @@ def handle_telegram_update(payload: Dict[str, Any]) -> Dict[str, Any]:
     Extracts message text, verifies chat_id, dispatches to Gemini AI Agent intent processor,
     and sends the formatted intelligent response back to Telegram.
     """
-    from backend.agent import process_telegram_intent
+    from backend.agent.classify_agent import process_telegram_intent
 
     message = payload.get("message") or payload.get("edited_message")
     if not message or "text" not in message:

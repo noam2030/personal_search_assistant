@@ -5,7 +5,6 @@ from typing import Dict, Any, List
 
 from google import genai
 from backend import db
-from backend.controller import run_task_by_id, run_user_tasks
 from backend.notifier import format_telegram_message
 
 
@@ -16,6 +15,7 @@ def process_telegram_intent(user_id: str, message_text: str) -> str:
     maps intent to backend task actions (CREATE_TASK, LIST_TASKS, RUN_TASK, RUN_ALL_TASKS, DELETE_TASK, REPLY, NO_ACTION),
     executes the appropriate backend controller/DB function, and returns formatted Markdown reply text.
     """
+    from backend.controller import run_task_by_id, run_user_tasks
     clean_text = message_text.strip()
     if not clean_text:
         return "Please send a message or task description!"
