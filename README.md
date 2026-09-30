@@ -19,9 +19,9 @@ flowchart TD
 
     subgraph Backend["FastAPI Application"]
         API["REST API Router (/api/*)"]
-        Agent["Telegram AI Agent (backend/agent.py)"]
+        Agent["Telegram AI Agent (backend/agent/classify_agent.py)"]
         Controller["Workflow Controller (backend/controller.py)"]
-        Extractor["Gemini Search Extractor (backend/extractor.py)"]
+        Extractor["Gemini Search Extractor (backend/agent/extract_content_agent.py)"]
         Notifier["Telegram Notifier (backend/notifier.py)"]
     end
 
@@ -63,7 +63,7 @@ flowchart TD
 - ⚡ **Live Google Search Grounding**: Powered by Gemini (`gemini-3.6-flash`) with dynamic Google Search Grounding to fetch current, live web data.
 - 🏷️ **Smart Auto-Naming**: Automatically derives a concise 3–5 word title (e.g., *"Tel Aviv Java Backend Jobs"*) when new tasks are created and executed.
 - 🤖 **Interactive Telegram AI Bot**:
-  - Conversational intent classifier (`backend/agent.py`) parses messages using Gemini.
+  - Conversational intent classifier (`backend/agent/classify_agent.py`) parses messages using Gemini.
   - Create tasks, list active tasks, run specific or all tasks, delete tasks, or ask questions directly in Telegram.
   - Authorized chat verification (`TELEGRAM_CHAT_ID`) prevents unauthorized commands.
 - 💻 **Modern Web Dashboard**:
@@ -94,8 +94,10 @@ personal_search_assistant/
 │   ├── main.py                 # App entrypoint, CORS setup, DB initialization
 │   ├── api.py                  # REST API endpoints & Telegram webhook
 │   ├── controller.py           # Task execution orchestrator
-│   ├── agent.py                # Telegram conversational AI intent classifier
-│   ├── extractor.py            # Gemini Search Grounding & item extraction
+│   ├── agent/                  # AI agents package
+│   │   ├── __init__.py         # Package exports
+│   │   ├── classify_agent.py   # Telegram conversational AI intent classifier
+│   │   └── extract_content_agent.py # Gemini Search Grounding & item extraction
 │   ├── db.py                   # Local SQLite storage implementation
 │   ├── cloud_db.py             # Google Cloud Firestore integration
 │   ├── notifier.py             # Telegram markdown message formatting & dispatch
@@ -263,7 +265,7 @@ python main.py delete-task --user noam --id 1
 
 ## Telegram Bot & AI Agent
 
-The backend includes a conversational AI agent (`backend/agent.py`) capable of parsing free-form natural language messages sent to your Telegram bot.
+The backend includes a conversational AI agent (`backend/agent/classify_agent.py`) capable of parsing free-form natural language messages sent to your Telegram bot.
 
 ### Supported Bot Capabilities
 - **Create task**: *"Track prices for M3 MacBook Pro 16 inch"*

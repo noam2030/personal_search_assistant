@@ -16,9 +16,9 @@ flowchart TD
 
     subgraph Backend["FastAPI Application"]
         API["REST API Router (/api/*)"]
-        Agent["Telegram AI Agent (backend/agent.py)"]
+        Agent["Telegram AI Agent (backend/agent/classify_agent.py)"]
         Controller["Workflow Controller (backend/controller.py)"]
-        Extractor["Gemini Search Extractor (backend/extractor.py)"]
+        Extractor["Gemini Search Extractor (backend/agent/extract_content_agent.py)"]
         Notifier["Telegram Notifier (backend/notifier.py)"]
     end
 
@@ -74,8 +74,10 @@ personal_search_assistant/
 │   ├── main.py                     # FastAPI app setup, CORS, entrypoint
 │   ├── api.py                      # REST API endpoints & Telegram webhook
 │   ├── controller.py               # Task execution controller & dispatcher
-│   ├── agent.py                    # Gemini conversational intent classifier
-│   ├── extractor.py                # Gemini live search grounding & extraction
+│   ├── agent/                      # AI agents package
+│   │   ├── __init__.py             # Package exports
+│   │   ├── classify_agent.py       # Gemini conversational intent classifier
+│   │   └── extract_content_agent.py # Gemini live search grounding & extraction
 │   ├── db.py                       # Database abstraction & SQLite implementation
 │   ├── cloud_db.py                 # Google Cloud Firestore integration
 │   ├── notifier.py                 # Telegram notification formatting & HTTP dispatch
@@ -152,14 +154,14 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 
 ## 5. Core Workflows & Intelligence
 
-### 5.1 Search Grounding & Automatic Task Naming (`backend/extractor.py`)
+### 5.1 Search Grounding & Automatic Task Naming (`backend/agent/extract_content_agent.py`)
 1. Receives natural language `task_description`.
 2. Calls Gemini (`gemini-3.6-flash`) with dynamic Google Search Grounding (`tools: [{"google_search": {}}]`).
 3. Formats output into a concise 3-5 word title (`task_title`) and structured `items`.
 4. If the task was previously unnamed or had a temporary default name, the controller updates `task.name` to match `task_title`.
 5. Includes socket patches on macOS to force IPv4 resolution and avoid DNS lookups hanging on IPv6.
 
-### 5.2 Telegram Conversational Agent (`backend/agent.py`)
+### 5.2 Telegram Conversational Agent (`backend/agent/classify_agent.py`)
 The Telegram webhook parses natural language intents using Gemini:
 - **`LIST_TASKS`**: "Show my tasks" / "What am I tracking?"
 - **`CREATE_TASK`**: "Find me flights to Rome" / "Track used M3 MacBooks"
