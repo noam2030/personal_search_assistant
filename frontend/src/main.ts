@@ -15,6 +15,7 @@ const submitTaskBtnText = document.getElementById('submitTaskBtnText') as HTMLSp
 const createTaskForm = document.getElementById('createTaskForm') as HTMLFormElement;
 const taskDescriptionInput = document.getElementById('taskDescription') as HTMLTextAreaElement;
 const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
+const currentDateText = document.getElementById('currentDateText') as HTMLSpanElement | null;
 
 // Running & Editing State
 const runningTasks: Record<number, boolean> = {};
@@ -424,5 +425,22 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Initial Load
+export function formatCurrentDate(date: Date = new Date()): string {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function updateCurrentDate(): void {
+  if (currentDateText) {
+    currentDateText.textContent = formatCurrentDate();
+  }
+}
+
+// Initial Load & Timers
+updateCurrentDate();
+setInterval(updateCurrentDate, 60000);
 loadTasks();

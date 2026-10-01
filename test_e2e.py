@@ -251,11 +251,42 @@ def test_workspace_skills():
     print("[E2E Test] Workspace Skills Loader tests passed!\n")
 
 
+def test_frontend_current_date():
+    """
+    Verifies that the current date element, styling, and script logic are present in frontend files.
+    """
+    print("[E2E Test] Testing Frontend Current Date Display...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    html_path = os.path.join(frontend_dir, "index.html")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    assert 'id="currentDate"' in html_content
+    assert 'id="currentDateText"' in html_content
+    assert 'header-brand' in html_content
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css_content = f.read()
+    assert '.header-brand' in css_content
+    assert '.header-date' in css_content
+
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+    assert 'currentDateText' in ts_content
+    assert 'formatCurrentDate' in ts_content
+    assert 'updateCurrentDate' in ts_content
+
+    print("[E2E Test] Frontend Current Date Display tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
     test_telegram_notifier()
     test_telegram_webhook_commands()
     test_workspace_skills()
+    test_frontend_current_date()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
