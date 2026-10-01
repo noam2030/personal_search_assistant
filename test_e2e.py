@@ -230,10 +230,32 @@ def test_telegram_webhook_commands():
     print("[E2E Test] AI Agent Telegram Webhook Intent Dispatcher tests passed!\n")
 
 
+def test_workspace_skills():
+    """
+    Verifies that workspace skills are loaded from .agents/skills/ and injected into the agent.
+    """
+    print("[E2E Test] Testing Workspace Skills Loader...")
+    from backend.agent.skills import load_workspace_skills, format_skills_for_prompt
+    from backend.agent.extract_content_agent import extract_agent
+
+    skills = load_workspace_skills()
+    assert len(skills) >= 1, "Expected at least one workspace skill"
+    skill_names = [s["name"] for s in skills]
+    assert "searching-skill" in skill_names, "searching-skill must be discovered"
+
+    formatted = format_skills_for_prompt()
+    assert "searching-skill" in formatted
+    assert "geektime.co.il" in formatted.lower()
+
+    assert "geektime.co.il" in extract_agent.instruction.lower()
+    print("[E2E Test] Workspace Skills Loader tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
     test_telegram_notifier()
     test_telegram_webhook_commands()
+    test_workspace_skills()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
