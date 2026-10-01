@@ -49,6 +49,26 @@ h1 {
   -webkit-text-fill-color: transparent;
 }
 
+.header-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.header-date {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.header-date .date-icon {
+  font-size: 0.95rem;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -515,6 +535,11 @@ pre {
     flex-direction: column;
     align-items: stretch;
     gap: 0.8rem;
+  }
+
+  .header-brand {
+    align-items: center;
+    text-align: center;
   }
 
   h1 {

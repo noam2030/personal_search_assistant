@@ -9,7 +9,13 @@
 <body>
   <div class="container">
     <header>
-      <h1>AI Personal Search Assistant</h1>
+      <div class="header-brand">
+        <h1>AI Personal Search Assistant</h1>
+        <div id="currentDate" class="header-date" aria-label="Current date" title="Current Date">
+          <span class="date-icon" aria-hidden="true">📅</span>
+          <span id="currentDateText"></span>
+        </div>
+      </div>
       <div class="header-actions">
         <button id="openCreateTaskModalBtn" class="btn-primary-action">New Task</button>
         <div class="user-selector">
