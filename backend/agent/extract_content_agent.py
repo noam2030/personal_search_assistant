@@ -51,7 +51,8 @@ EXTRACT_INSTRUCTION = (
     '      "title": "Item Title",\n'
     '      "link": "https://...",\n'
     '      "description": "Details",\n'
-    '      "location": "Location if applicable"\n'
+    '      "location": "Location if applicable",\n'
+    '      "website": "Source website or domain (e.g. geektime.co.il)"\n'
     "    }\n"
     "  ]\n"
     "}\n"

@@ -213,6 +213,57 @@ function renderVisualText(rawResult: string, taskId: number): string {
   }
 }
 
+function extractWebsiteInfo(item: any, link: string | null): { name: string; url?: string } | null {
+  // 1. Check explicit website / source / domain properties
+  const siteKey = Object.keys(item).find((k) => /^(website|source|source_website|site|domain|publisher)$/i.test(k))
+    || Object.keys(item).find((k) => /(website|source_website)/i.test(k));
+
+  if (siteKey && item[siteKey]) {
+    const rawVal = String(item[siteKey]).trim();
+    if (rawVal) {
+      if (/^https?:\/\//i.test(rawVal)) {
+        try {
+          const parsed = new URL(rawVal);
+          return {
+            name: parsed.hostname.replace(/^www\./i, ''),
+            url: parsed.href,
+          };
+        } catch {
+          return { name: rawVal, url: rawVal };
+        }
+      }
+      return {
+        name: rawVal,
+        url: link || undefined,
+      };
+    }
+  }
+
+  // 2. Extract domain from link
+  if (link) {
+    try {
+      const parsed = new URL(link);
+      const host = parsed.hostname.replace(/^www\./i, '');
+      if (host) {
+        return {
+          name: host,
+          url: `${parsed.protocol}//${parsed.host}`,
+        };
+      }
+    } catch {
+      const match = link.match(/^(?:https?:\/\/)?(?:www\.)?([^\/\s]+)/i);
+      if (match && match[1]) {
+        return {
+          name: match[1],
+          url: link.startsWith('http') ? link : `https://${link}`,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 function renderSingleItemText(item: any): string {
   if (typeof item !== 'object' || item === null) {
     return `<div class="result-item-card"><div class="result-item-title">${escapeHtml(String(item))}</div></div>`;
@@ -221,22 +272,48 @@ function renderSingleItemText(item: any): string {
   const titleKey = Object.keys(item).find((k) => /title|name|heading|event/i.test(k)) || Object.keys(item)[0];
   const title = titleKey ? String(item[titleKey]) : 'Extracted Item';
 
-  const linkKey = Object.keys(item).find((k) => /link|url|href|website/i.test(k));
+  const linkKey = Object.keys(item).find((k) => /^(link|url|href)$/i.test(k))
+    || Object.keys(item).find((k) => /link|url|href/i.test(k));
   const link = linkKey ? String(item[linkKey]) : null;
 
   const descKey = Object.keys(item).find((k) => /desc|details|summary|text|info/i.test(k));
   const description = descKey && descKey !== titleKey ? String(item[descKey]) : null;
 
-  const ignoredKeys = new Set([titleKey, linkKey, descKey].filter(Boolean));
-  const pills = Object.entries(item)
-    .filter(([k]) => !ignoredKeys.has(k))
-    .map(([k, v]) => `<span class="result-pill"><strong>${escapeHtml(formatKey(k))}:</strong> ${escapeHtml(String(v))}</span>`)
-    .join('');
+  const locationKey = Object.keys(item).find((k) => /^(location|venue|place|city|address)$/i.test(k))
+    || Object.keys(item).find((k) => /location|venue|city/i.test(k));
+  const locationVal = locationKey && item[locationKey] !== null && item[locationKey] !== undefined
+    ? String(item[locationKey]).trim()
+    : null;
+
+  const siteKey = Object.keys(item).find((k) => /^(website|source|source_website|site|domain|publisher)$/i.test(k))
+    || Object.keys(item).find((k) => /(website|source_website)/i.test(k));
+  const websiteInfo = extractWebsiteInfo(item, link);
+
+  const ignoredKeys = new Set([titleKey, linkKey, descKey, locationKey, siteKey].filter(Boolean));
+
+  const metaPills: string[] = [];
+
+  if (locationVal) {
+    metaPills.push(`<span class="result-pill result-pill-location"><strong>Location:</strong> ${escapeHtml(locationVal)}</span>`);
+  }
+
+  if (websiteInfo) {
+    const websiteHtml = websiteInfo.url
+      ? `<a href="${escapeHtml(websiteInfo.url)}" target="_blank" rel="noopener" class="result-website-link">${escapeHtml(websiteInfo.name)}</a>`
+      : escapeHtml(websiteInfo.name);
+    metaPills.push(`<span class="result-pill result-pill-website"><strong>Website:</strong> ${websiteHtml}</span>`);
+  }
+
+  Object.entries(item).forEach(([k, v]) => {
+    if (!ignoredKeys.has(k) && v !== null && v !== undefined && String(v).trim()) {
+      metaPills.push(`<span class="result-pill"><strong>${escapeHtml(formatKey(k))}:</strong> ${escapeHtml(String(v))}</span>`);
+    }
+  });
 
   return `
     <div class="result-item-card">
       <div class="result-item-title">${escapeHtml(title)}</div>
-      ${pills ? `<div class="result-pills-row">${pills}</div>` : ''}
+      ${metaPills.length > 0 ? `<div class="result-pills-row">${metaPills.join('')}</div>` : ''}
       ${description ? `<div class="result-item-desc">${escapeHtml(description)}</div>` : ''}
       ${link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" class="result-link-btn">View Details ↗</a>` : ''}
     </div>
