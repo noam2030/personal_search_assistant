@@ -12,6 +12,11 @@ from backend.agent.extract_content_agent import (
     _call_gemini_with_retry,
 )
 
+from backend.agent.skills import (
+    load_workspace_skills,
+    format_skills_for_prompt,
+)
+
 __all__ = [
     "classify_agent",
     "process_telegram_intent",
@@ -22,4 +27,6 @@ __all__ = [
     "extract_content",
     "_call_adk_with_retry",
     "_call_gemini_with_retry",
+    "load_workspace_skills",
+    "format_skills_for_prompt",
 ]

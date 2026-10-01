@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from google.adk import Agent
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.google_search_tool import google_search
+from backend.agent.skills import format_skills_for_prompt
 
 # Force IPv4 socket resolution on macOS to avoid IPv6 [Errno 8] DNS lookup errors
 old_getaddrinfo = socket.getaddrinfo
@@ -58,12 +59,27 @@ EXTRACT_INSTRUCTION = (
     "}\n"
 )
 
+
+def _get_combined_instruction() -> str:
+    """Returns base instruction augmented with any active workspace skills."""
+    skills_context = format_skills_for_prompt()
+    if not skills_context:
+        return EXTRACT_INSTRUCTION
+    return (
+        f"{EXTRACT_INSTRUCTION}\n\n"
+        f"{skills_context}\n\n"
+        "IMPORTANT SEARCH DIRECTIVE: When a user query matches any domain covered by the Workspace Skills above, "
+        "you MUST strictly prioritize and restrict your search sources according to the skill instructions "
+        "(e.g. searching within geektime.co.il for tech events using the google_search tool)."
+    )
+
+
 # Google ADK Search & Extraction Agent
 extract_agent = Agent(
     name="extract_content_agent",
     model="gemini-3.6-flash",
     description="Understands user search intent, executes Google Search via ADK, and extracts structured items.",
-    instruction=EXTRACT_INSTRUCTION,
+    instruction=_get_combined_instruction(),
     tools=[google_search],
 )
 
@@ -72,7 +88,7 @@ extract_agent_fallback = Agent(
     name="extract_content_agent_fallback",
     model="gemini-3.6-flash",
     description="Fallback search extraction agent without live search grounding.",
-    instruction=EXTRACT_INSTRUCTION,
+    instruction=_get_combined_instruction(),
 )
 
 
@@ -105,9 +121,23 @@ def extract_content(task_description: str) -> str:
     """
     Passes the task_description to the Google ADK Agent equipped with Google Search tool.
     The ADK Agent executes live search/extraction and returns task_title + items as a JSON string.
+    Workspace skills from .agents/skills/ are dynamically loaded and enforced.
     """
     _ensure_api_key()
+
+    skills_context = format_skills_for_prompt()
+    combined_instruction = _get_combined_instruction()
+    extract_agent.instruction = combined_instruction
+    extract_agent_fallback.instruction = combined_instruction
+
     prompt = f"User Natural Language Request: {task_description}"
+    if skills_context:
+        prompt += (
+            f"\n\n{skills_context}\n\n"
+            "MANDATORY REQUIREMENT: If the user request matches or relates to any of the skills above (e.g. finding tech events), "
+            "you MUST strictly follow the skill guidelines. For example, for tech events, use the google_search tool to search "
+            "within geektime.co.il (e.g. query 'site:geektime.co.il' or search Geektime event listings) and extract events from that website."
+        )
 
     try:
         return _call_adk_with_retry(extract_agent, prompt)
