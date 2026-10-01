@@ -1,8 +1,13 @@
 import os
 import time
 import socket
+import asyncio
+import concurrent.futures
 from dotenv import load_dotenv
-from google import genai
+
+from google.adk import Agent
+from google.adk.runners import InMemoryRunner
+from google.adk.tools.google_search_tool import google_search
 
 # Force IPv4 socket resolution on macOS to avoid IPv6 [Errno 8] DNS lookup errors
 old_getaddrinfo = socket.getaddrinfo
@@ -18,68 +23,107 @@ socket.getaddrinfo = ipv4_getaddrinfo
 load_dotenv()
 
 
-def extract_content(task_description: str) -> str:
-    """
-    Passes the task_description to Gemini API with live Google Search Grounding.
-    Gemini understands the goal, executes search/extraction, and returns task_title + items.
-    """
-    api_key = os.getenv("GEMINI_API_KEY")
+def _ensure_api_key() -> str:
+    """Ensures Gemini / Google API key is configured and exported for Google ADK."""
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError(
             "GEMINI_API_KEY environment variable is not set. "
             "Please set it in your environment or in a .env file."
         )
+    if not os.getenv("GOOGLE_API_KEY"):
+        os.environ["GOOGLE_API_KEY"] = api_key
+    return api_key
 
-    client = genai.Client(api_key=api_key)
 
-    prompt = (
-        f"You are an AI Personal Search Assistant equipped with Google Search.\n"
-        f"User Natural Language Request: {task_description}\n\n"
-        f"Task:\n"
-        f"1. Understand the user's intent (e.g. finding jobs, price/room monitoring, item discovery).\n"
-        f"2. Perform a web search to find live information matching the user's request.\n"
-        f"3. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
-        f"4. Extract matching items with titles, links, and key details.\n"
-        f"5. Return ONLY a valid JSON object strictly matching this schema:\n"
-        f"{{\n"
-        f'  "task_title": "Short Descriptive Title",\n'
-        f'  "items": [\n'
-        f'    {{\n'
-        f'      "title": "Item Title",\n'
-        f'      "link": "https://...",\n'
-        f'      "description": "Details",\n'
-        f'      "location": "Location if applicable"\n'
-        f'    }}\n'
-        f'  ]\n'
-        f"}}\n"
-    )
+EXTRACT_INSTRUCTION = (
+    "You are an AI Personal Search Assistant equipped with Google Search.\n"
+    "Task:\n"
+    "1. Understand the user's intent (e.g. finding jobs, price/room monitoring, item discovery).\n"
+    "2. Perform a web search using the google_search tool to find live information matching the user's request.\n"
+    "3. Generate a concise 3-5 word task title summarizing the goal (e.g. 'Tel Aviv Java Backend Jobs').\n"
+    "4. Extract matching items with titles, links, and key details.\n"
+    "5. Return ONLY a valid JSON object strictly matching this schema:\n"
+    "{\n"
+    '  "task_title": "Short Descriptive Title",\n'
+    '  "items": [\n'
+    "    {\n"
+    '      "title": "Item Title",\n'
+    '      "link": "https://...",\n'
+    '      "description": "Details",\n'
+    '      "location": "Location if applicable"\n'
+    "    }\n"
+    "  ]\n"
+    "}\n"
+)
+
+# Google ADK Search & Extraction Agent
+extract_agent = Agent(
+    name="extract_content_agent",
+    model="gemini-3.6-flash",
+    description="Understands user search intent, executes Google Search via ADK, and extracts structured items.",
+    instruction=EXTRACT_INSTRUCTION,
+    tools=[google_search],
+)
+
+# Fallback Google ADK Agent without search tool (used when search grounding is unavailable)
+extract_agent_fallback = Agent(
+    name="extract_content_agent_fallback",
+    model="gemini-3.6-flash",
+    description="Fallback search extraction agent without live search grounding.",
+    instruction=EXTRACT_INSTRUCTION,
+)
+
+
+def _run_adk_agent_sync(agent: Agent, prompt: str) -> str:
+    """Executes an ADK agent synchronously, handling active or nested asyncio event loops."""
+    async def _run() -> str:
+        runner = InMemoryRunner(agent=agent)
+        events = await runner.run_debug(prompt, quiet=True)
+        text_parts = []
+        for event in events:
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if part.text:
+                        text_parts.append(part.text)
+        return "".join(text_parts).strip()
+
     try:
-        return _call_gemini_with_retry(client, prompt, config={"tools": [{"google_search": {}}]})
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(lambda: asyncio.run(_run())).result()
+    else:
+        return asyncio.run(_run())
+
+
+def extract_content(task_description: str) -> str:
+    """
+    Passes the task_description to the Google ADK Agent equipped with Google Search tool.
+    The ADK Agent executes live search/extraction and returns task_title + items as a JSON string.
+    """
+    _ensure_api_key()
+    prompt = f"User Natural Language Request: {task_description}"
+
+    try:
+        return _call_adk_with_retry(extract_agent, prompt)
     except Exception as err:
-        print(f"[Warning] Grounding fallback attempt: {err}")
-        return _call_gemini_with_retry(client, prompt)
+        print(f"[Warning] ADK Grounding fallback attempt: {err}")
+        return _call_adk_with_retry(extract_agent_fallback, prompt)
 
 
-def _call_gemini_with_retry(client, prompt: str, config=None, retries: int = 3) -> str:
-    """Executes generate_content with retries and clean DNS/network error handling."""
+def _call_adk_with_retry(agent: Agent, prompt: str, retries: int = 3) -> str:
+    """Executes ADK agent with retries and clean DNS/network error handling."""
     last_err = None
     for attempt in range(1, retries + 1):
         try:
-            if config:
-                res = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=prompt,
-                    config=config,
-                )
-            else:
-                res = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=prompt,
-                )
-            return res.text
+            return _run_adk_agent_sync(agent, prompt)
         except Exception as e:
             last_err = e
-            print(f"[Attempt {attempt}/{retries}] Gemini API call failed: {e}")
+            print(f"[Attempt {attempt}/{retries}] ADK Agent call failed: {e}")
             if attempt < retries:
                 time.sleep(1)
 
@@ -89,4 +133,10 @@ def _call_gemini_with_retry(client, prompt: str, config=None, retries: int = 3) 
             f"Network DNS lookup failed on local Mac ({last_err}). Please check your Wi-Fi or run the task again."
         ) from last_err
 
-    raise RuntimeError(f"Gemini API request failed after {retries} attempts: {last_err}") from last_err
+    raise RuntimeError(f"ADK Agent request failed after {retries} attempts: {last_err}") from last_err
+
+
+def _call_gemini_with_retry(client, prompt: str, config=None, retries: int = 3) -> str:
+    """Backwards-compatible wrapper redirecting to ADK execution."""
+    agent = extract_agent if config else extract_agent_fallback
+    return _call_adk_with_retry(agent, prompt, retries=retries)

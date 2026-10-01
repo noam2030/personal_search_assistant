@@ -11,17 +11,17 @@ echo "=================================================="
 echo " Personal Search Assistant - Verification Runner"
 echo "=================================================="
 
-# Check virtual environment for pytest
-if [ -f "venv/bin/pytest" ]; then
-    PYTEST_BIN="venv/bin/pytest"
+# Check for uv or .venv pytest
+if command -v uv >/dev/null 2>&1 && [ -f ".venv/bin/pytest" ]; then
+    PYTEST_CMD=(uv run pytest)
 elif [ -f ".venv/bin/pytest" ]; then
-    PYTEST_BIN=".venv/bin/pytest"
+    PYTEST_CMD=(.venv/bin/pytest)
 else
-    echo "❌ Error: Virtual environment pytest not found. Please ensure venv/bin/pytest is installed."
+    echo "❌ Error: Virtual environment pytest not found in .venv/. Please install dependencies via uv."
     exit 1
 fi
 
-echo "Using Pytest: ${PYTEST_BIN}"
+echo "Using Pytest: ${PYTEST_CMD[*]}"
 
 # Check .env existence
 if [ -f ".env" ]; then
@@ -30,11 +30,11 @@ else
     echo "⚠️ Warning: .env file not found in ${PROJECT_ROOT}"
 fi
 
-# Run test suite via venv/bin/pytest
+# Run test suite via uv or .venv
 echo ""
-echo "Running test suite via ${PYTEST_BIN}..."
+echo "Running test suite via ${PYTEST_CMD[*]}..."
 echo "--------------------------------------------------"
-"${PYTEST_BIN}" test_e2e.py
+"${PYTEST_CMD[@]}" test_e2e.py
 
 echo ""
 echo "✓ All checks completed successfully."
