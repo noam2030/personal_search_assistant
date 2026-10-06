@@ -190,23 +190,29 @@ function renderVisualText(rawResult: string, taskId: number): string {
       `;
     }
 
-    if (items.length === 1) {
-      return `<div class="result-text-list">${renderSingleItemText(items[0])}</div>`;
-    }
+    const initialItems = items.slice(0, 4);
+    const extraItems = items.slice(4);
+    const cols = Math.min(initialItems.length, 4);
 
-    const firstItemHtml = renderSingleItemText(items[0]);
-    const remainingItemsHtml = items.slice(1).map((item) => renderSingleItemText(item)).join('');
-    const extraCount = items.length - 1;
+    const initialItemsHtml = initialItems.map((item) => renderSingleItemText(item)).join('');
+    const extraItemsHtml = extraItems.map((item) => renderSingleItemText(item)).join('');
+    const extraCount = extraItems.length;
 
     return `
       <div class="result-text-list">
-        ${firstItemHtml}
-        <div class="extra-results-container hidden" id="extra-results-${taskId}">
-          ${remainingItemsHtml}
+        <div class="result-cards-grid" data-count="${cols}" style="--grid-columns: ${cols};">
+          ${initialItemsHtml}
         </div>
-        <button class="expand-results-btn" data-task-id="${taskId}" data-extra-count="${extraCount}">
-          ••• Show ${extraCount} more ${extraCount === 1 ? 'item' : 'items'}
-        </button>
+        ${extraCount > 0 ? `
+          <div class="extra-results-container hidden" id="extra-results-${taskId}">
+            <div class="result-cards-grid" data-count="4" style="--grid-columns: 4;">
+              ${extraItemsHtml}
+            </div>
+          </div>
+          <button class="expand-results-btn" data-task-id="${taskId}" data-extra-count="${extraCount}">
+            ••• Show ${extraCount} more ${extraCount === 1 ? 'item' : 'items'}
+          </button>
+        ` : ''}
       </div>
     `;
   } catch {
@@ -315,7 +321,7 @@ function renderSingleItemText(item: any): string {
     <div class="result-item-card">
       <div class="result-item-title">${escapeHtml(title)}</div>
       ${metaPills.length > 0 ? `<div class="result-pills-row">${metaPills.join('')}</div>` : ''}
-      ${description ? `<div class="result-item-desc">${escapeHtml(description)}</div>` : ''}
+      ${description ? `<div class="result-item-desc" title="${escapeHtml(description)}">${escapeHtml(description)}</div>` : ''}
       ${link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" class="result-link-btn">View Details ↗</a>` : ''}
     </div>
   `;
