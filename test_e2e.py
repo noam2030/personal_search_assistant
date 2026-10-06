@@ -281,6 +281,33 @@ def test_frontend_current_date():
     print("[E2E Test] Frontend Current Date Display tests passed!\n")
 
 
+def test_frontend_repo_link():
+    """
+    Verifies that the GitHub repository link, styling, and accessibility attributes are present in frontend files.
+    """
+    print("[E2E Test] Testing Frontend Repository Link...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    html_path = os.path.join(frontend_dir, "index.html")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    assert 'id="githubRepoLink"' in html_content
+    assert 'https://github.com/noam2030/personal_search_assistant' in html_content
+    assert 'target="_blank"' in html_content
+    assert 'rel="noopener noreferrer"' in html_content
+    assert 'btn-github' in html_content
+    assert 'app-footer' in html_content
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css_content = f.read()
+    assert '.btn-github' in css_content
+    assert '.github-icon' in css_content
+    assert '.app-footer' in css_content
+
+    print("[E2E Test] Frontend Repository Link tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -288,5 +315,6 @@ if __name__ == "__main__":
     test_telegram_webhook_commands()
     test_workspace_skills()
     test_frontend_current_date()
+    test_frontend_repo_link()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
