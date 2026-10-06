@@ -26,7 +26,7 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
   - Up to 4 extracted items are displayed horizontally side-by-side in a responsive CSS Grid (`.result-cards-grid`).
   - Total number of results badge is omitted to reduce visual clutter.
   - When more than 4 items are extracted, the first 4 items are shown initially, with an expand toggle button (`••• Show X more results`) that reveals all remaining cards upon click and toggles back to `▲ Show less`.
-  - Individual cards display title, location pill, source website link, line-clamped description with hover tooltip, and outbound link button (`View Details ↗`).
+  - Individual cards display title, source website link, line-clamped description with hover tooltip, and outbound link button (`View Details ↗`) (location is omitted for streamlined cards).
 - **Modal Dialog**:
   - Modal dialog overlay for creating and editing tasks with keyboard accessibility (`ESC` key support and outside-click dismiss).
 - **Footer**:
@@ -159,6 +159,7 @@ personal_search_assistant/
   - Task status badge (`.badge`) and action buttons (`.task-actions`: Run Task, Edit, Delete) are grouped inline inside `.task-status-actions` within `.task-header`.
   - Task description and last run timestamp rows are omitted from card view for visual clarity.
   - Total number of results badge is removed from the results container.
+  - Location pill is omitted from individual item cards while preserving title, source website badge, description, and link.
 - **Dynamic API Base URL Resolution (`frontend/src/api.ts`)**:
   - Automatically resolves backend target via `resolveApiBaseUrl()`:
   - If `VITE_API_URL` is set, uses that URL.
@@ -233,6 +234,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_frontend_api_base_url_resolution`: Verifies dynamic API base URL resolution to Staging, Production, and Local dev.
   - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
   - `test_frontend_compact_task_card_layout`: Verifies inline header actions, omission of description/last run/total results badge, and retention of expand toggle.
+  - `test_frontend_omits_location_pill`: Verifies location pills are omitted from item results while preserving other key fields.
   - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 
