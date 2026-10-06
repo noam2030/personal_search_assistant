@@ -182,8 +182,11 @@ The Telegram webhook parses natural language intents using Gemini:
 
 ## 6. Deployment & Infrastructure
 
-- **Cloud Run**: Serverless container hosting the FastAPI backend via `backend/Dockerfile`.
+- **Cloud Run (Production)**: Serverless container hosting the FastAPI backend via `backend/Dockerfile` (`personal-search-assistant-api`).
+- **Cloud Run (Staging)**: Dedicated staging service (`personal-search-assistant-api-staging`) deployed automatically on passing pull requests.
 - **Cloud Firestore**: Activated automatically when `K_SERVICE` is set in Cloud Run.
 - **Cloud Scheduler**: Scheduled trigger deployed via `deploy_cloud_scheduler.sh` running daily (e.g. 20:00 Asia/Jerusalem) against `/api/tasks/run-all`.
-- **Frontend Hosting**: Built with Vite and deployable to Vercel or any static host with `VITE_API_URL`.
-- **CI/CD**: `.github/workflows/deploy-backend.yml` automates deployment to Google Cloud Run on push to `main`.
+- **Frontend Hosting**: Built with Vite and deployable to Vercel (with automatic PR preview deployments).
+- **CI/CD Pipelines**:
+  - **PR Testing & Staging (`.github/workflows/pr-test-and-staging.yml`)**: Runs full automated tests (`pytest`, `npm run build`) on every pull request. If all tests pass, automatically deploys the backend to the `personal-search-assistant-api-staging` Cloud Run service.
+  - **Production Deployment (`.github/workflows/deploy-backend.yml`)**: Automatically deploys the backend to production Cloud Run (`personal-search-assistant-api`) when code is merged into `main`.

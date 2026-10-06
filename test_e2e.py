@@ -341,6 +341,32 @@ def test_frontend_horizontal_card_grid():
     print("[E2E Test] Frontend Horizontal Card Grid Layout tests passed!\n")
 
 
+def test_pr_ci_staging_workflow():
+    """
+    Verifies that the PR test and staging deployment GitHub Actions workflow is present and properly configured.
+    """
+    print("[E2E Test] Testing PR CI & Staging Workflow Configuration...")
+    workflow_path = os.path.join(os.path.dirname(__file__), ".github", "workflows", "pr-test-and-staging.yml")
+    assert os.path.exists(workflow_path), "pr-test-and-staging.yml must exist"
+
+    with open(workflow_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "pull_request:" in content
+    assert "branches:" in content
+    assert "main" in content
+    assert "jobs:" in content
+    assert "test:" in content
+    assert "pytest" in content
+    assert "npm run build" in content
+    assert "deploy-staging:" in content
+    assert "needs: test" in content
+    assert "personal-search-assistant-api-staging" in content
+    assert "GCP_SA_KEY" in content
+
+    print("[E2E Test] PR CI & Staging Workflow Configuration tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -350,5 +376,6 @@ if __name__ == "__main__":
     test_frontend_current_date()
     test_frontend_repo_link()
     test_frontend_horizontal_card_grid()
+    test_pr_ci_staging_workflow()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
