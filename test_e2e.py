@@ -308,6 +308,39 @@ def test_frontend_repo_link():
     print("[E2E Test] Frontend Repository Link tests passed!\n")
 
 
+def test_frontend_horizontal_card_grid():
+    """
+    Verifies that the horizontal cards layout (up to 4 items initially, show more toggle for > 4 items,
+    and responsive CSS grid styling) is correctly configured in frontend files.
+    """
+    print("[E2E Test] Testing Frontend Horizontal Card Grid Layout...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+    assert 'items.slice(0, 4)' in ts_content, "Must take first 4 items for initial visible cards"
+    assert 'items.slice(4)' in ts_content, "Must slice remaining items for extra container"
+    assert 'Math.min(initialItems.length, 4)' in ts_content, "Must set up to 4 grid columns dynamically"
+    assert 'result-cards-grid' in ts_content, "Must render result-cards-grid container"
+    assert 'extra-results-container' in ts_content, "Must render extra-results-container"
+    assert 'expand-results-btn' in ts_content, "Must render expand button"
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css_content = f.read()
+    assert '.result-cards-grid' in css_content
+    assert 'display: grid;' in css_content
+    assert 'grid-template-columns: repeat(var(--grid-columns, 4)' in css_content
+    assert '.extra-results-container.hidden' in css_content
+    assert 'display: none !important;' in css_content
+    assert '.result-item-card' in css_content
+    assert 'display: flex;' in css_content
+    assert 'flex-direction: column;' in css_content
+
+    print("[E2E Test] Frontend Horizontal Card Grid Layout tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -316,5 +349,6 @@ if __name__ == "__main__":
     test_workspace_skills()
     test_frontend_current_date()
     test_frontend_repo_link()
+    test_frontend_horizontal_card_grid()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

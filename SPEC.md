@@ -171,6 +171,13 @@ The Telegram webhook parses natural language intents using Gemini:
 - **`REPLY`**: Conversational replies / Help
 - **Security**: Validates incoming `chat.id` against `TELEGRAM_CHAT_ID`.
 
+### 5.3 Frontend Results Presentation & Responsive Cards Layout
+- Displays extracted search results for each task in visually rich cards (`.result-item-card`).
+- Up to 4 cards are presented horizontally side-by-side in a responsive CSS Grid (`.result-cards-grid`) with dynamically configured column tracks (`--grid-columns`).
+- When more than 4 items are present, the first 4 items are shown initially, accompanied by an expand button (`••• Show X more items`) that reveals all remaining cards in the horizontal grid upon click and toggles back to `▲ Show less`.
+- Responsive breakpoints ensure readability across devices: up to 4 columns on desktop (> 900px), 2 columns on tablets (641px - 900px), and 1 column on mobile (<= 640px).
+- Individual cards format titles, location pills, source website badges with outbound hyperlinks, line-clamped descriptions with tooltip hover, and action buttons.
+
 ---
 
 ## 6. Deployment & Infrastructure
