@@ -57,24 +57,6 @@ async function loadTasks(): Promise<void> {
   }
 }
 
-function getItemCount(rawResult?: string | null): number | null {
-  if (!rawResult) return null;
-  try {
-    const cleanRaw = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-    const parsed = JSON.parse(cleanRaw);
-    if (Array.isArray(parsed)) return parsed.length;
-    if (parsed && typeof parsed === 'object') {
-      if (Array.isArray(parsed.items)) return parsed.items.length;
-      if (Array.isArray(parsed.results)) return parsed.results.length;
-      if (Array.isArray(parsed.events)) return parsed.events.length;
-      if (Array.isArray(parsed.data)) return parsed.data.length;
-    }
-    return 0;
-  } catch {
-    return null;
-  }
-}
-
 function renderTaskList(tasks: Task[]): void {
   if (tasks.length === 0) {
     taskListContainer.innerHTML = '<p style="color: var(--text-muted);">No persistent tasks found. Click "➕ New Task" above to create your first task!</p>';
@@ -99,17 +81,16 @@ function renderTaskList(tasks: Task[]): void {
     card.innerHTML = `
       <div class="task-header">
         <span class="task-name">${escapeHtml(task.name)}</span>
-        <span class="badge ${badgeClass}">${status}</span>
-      </div>
-      <div class="task-detail"><strong>Task Description:</strong> ${escapeHtml(task.task_description)}</div>
-      <div class="task-detail" style="font-size: 0.75rem;"><strong>Last Run:</strong> ${task.last_run_at || 'Never'}</div>
-      
-      <div class="task-actions">
-        <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
-          ${isRunning ? '<div class="spinner"></div> Running...' : 'Run Task'}
-        </button>
-        <button class="btn-secondary edit-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>✏️ Edit</button>
-        <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
+        <div class="task-status-actions">
+          <span class="badge ${badgeClass}">${status}</span>
+          <div class="task-actions">
+            <button class="run-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>
+              ${isRunning ? '<div class="spinner"></div> Running...' : 'Run Task'}
+            </button>
+            <button class="btn-secondary edit-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>✏️ Edit</button>
+            <button class="btn-danger delete-btn" data-id="${task.id}" ${isRunning ? 'disabled' : ''}>Delete</button>
+          </div>
+        </div>
       </div>
 
       ${task.last_error ? `<div class="result-container" style="border: 1px solid var(--danger); margin-top: 1rem;"><pre style="color: var(--danger);">${escapeHtml(task.last_error)}</pre></div>` : ''}
@@ -137,7 +118,7 @@ function renderTaskList(tasks: Task[]): void {
             expandBtn.innerHTML = '▲ Show less';
           } else {
             extraContainer.classList.add('hidden');
-            expandBtn.innerHTML = `••• Show ${extraCount} more ${extraCount === '1' ? 'item' : 'items'}`;
+            expandBtn.innerHTML = `••• Show ${extraCount} more ${extraCount === '1' ? 'result' : 'results'}`;
           }
         }
       });
@@ -148,15 +129,7 @@ function renderTaskList(tasks: Task[]): void {
 }
 
 function renderResultSection(rawResult: string, taskId: number): string {
-  const count = getItemCount(rawResult);
-  const headerBadge = count !== null
-    ? `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 600; font-size: 0.85rem; padding: 0.3rem 0.7rem;">${count} ${count === 1 ? 'Result' : 'Results'}</span>`
-    : `<span class="result-header-title">Extraction Results</span>`;
-
   return `
-    <div class="result-header">
-      ${headerBadge}
-    </div>
     <div class="result-container">
       ${renderVisualText(rawResult, taskId)}
     </div>
@@ -211,7 +184,7 @@ function renderVisualText(rawResult: string, taskId: number): string {
             </div>
           </div>
           <button class="expand-results-btn" data-task-id="${taskId}" data-extra-count="${extraCount}">
-            ••• Show ${extraCount} more ${extraCount === 1 ? 'item' : 'items'}
+            ••• Show ${extraCount} more ${extraCount === 1 ? 'result' : 'results'}
           </button>
         ` : ''}
       </div>
