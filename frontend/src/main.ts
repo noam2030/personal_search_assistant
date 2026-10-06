@@ -1,7 +1,9 @@
 import { Task } from './types';
-import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById, runAllTasks } from './api';
+import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById, runAllTasks, API_BASE_URL } from './api';
 
 // DOM Element References
+const apiBaseUrlLink = document.getElementById('apiBaseUrlLink') as HTMLAnchorElement | null;
+const apiBaseUrlText = document.getElementById('apiBaseUrlText') as HTMLSpanElement | null;
 const userIdInput = document.getElementById('userIdInput') as HTMLInputElement;
 const refreshTasksBtn = document.getElementById('refreshTasksBtn') as HTMLButtonElement;
 const runAllTasksBtn = document.getElementById('runAllTasksBtn') as HTMLButtonElement;
@@ -430,5 +432,14 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function initApiBaseUrlDisplay(): void {
+  if (apiBaseUrlLink && apiBaseUrlText) {
+    apiBaseUrlLink.href = API_BASE_URL;
+    apiBaseUrlText.textContent = API_BASE_URL;
+    apiBaseUrlLink.title = `Connected to API Base URL: ${API_BASE_URL}`;
+  }
+}
+
 // Initial Load
+initApiBaseUrlDisplay();
 loadTasks();
