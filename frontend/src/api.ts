@@ -1,7 +1,38 @@
 import { Task, CreateTaskPayload, UpdateTaskPayload } from './types';
 
-// Reads API URL from environment variable in Vercel or defaults to local FastAPI
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+/**
+ * Resolves the backend API base URL.
+ * Priority:
+ * 1. Explicit VITE_API_URL environment variable if provided at build time.
+ * 2. If running in a browser on Vercel preview/staging (*.vercel.app branch/preview),
+ *    route to the Cloud Run Staging service.
+ * 3. If running on Vercel production domain, route to Cloud Run Production service.
+ * 4. Fallback to local FastAPI development server (http://localhost:8000).
+ */
+export function resolveApiBaseUrl(): string {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname.endsWith('vercel.app')) {
+      // Vercel Preview / Git branch / staging environments
+      if (
+        hostname.includes('git-') ||
+        hostname.includes('staging') ||
+        hostname.includes('preview') ||
+        hostname.includes('-preview-')
+      ) {
+        return 'https://personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app';
+      }
+      // Vercel Production deployment
+      return 'https://personal-search-assistant-api-6dekvxzgaq-uc.a.run.app';
+    }
+  }
+  return 'http://localhost:8000';
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export async function fetchUserTasks(userId: string): Promise<Task[]> {
   const response = await fetch(`${API_BASE_URL}/api/tasks?user_id=${encodeURIComponent(userId)}`);

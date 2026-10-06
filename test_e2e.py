@@ -401,6 +401,27 @@ def test_frontend_user_selector_layout():
     print("[E2E Test] Frontend User Selector Layout tests passed!\n")
 
 
+def test_frontend_api_base_url_resolution():
+    """
+    Verifies that frontend/src/api.ts configures dynamic API base URL resolution
+    routing Vercel preview/staging to Cloud Run Staging and falling back cleanly.
+    """
+    print("[E2E Test] Testing Frontend API Base URL Resolution...")
+    api_path = os.path.join(os.path.dirname(__file__), "frontend", "src", "api.ts")
+    assert os.path.exists(api_path), "api.ts must exist"
+
+    with open(api_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "resolveApiBaseUrl" in content, "resolveApiBaseUrl must be defined"
+    assert "personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app" in content, "Must include staging Cloud Run API URL"
+    assert "personal-search-assistant-api-6dekvxzgaq-uc.a.run.app" in content, "Must include production Cloud Run API URL"
+    assert "vercel.app" in content, "Must detect vercel.app hostnames"
+    assert "http://localhost:8000" in content, "Must fallback to localhost"
+
+    print("[E2E Test] Frontend API Base URL Resolution tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -412,5 +433,6 @@ if __name__ == "__main__":
     test_frontend_horizontal_card_grid()
     test_pr_ci_staging_workflow()
     test_frontend_user_selector_layout()
+    test_frontend_api_base_url_resolution()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
