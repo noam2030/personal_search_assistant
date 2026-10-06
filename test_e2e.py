@@ -367,6 +367,40 @@ def test_pr_ci_staging_workflow():
     print("[E2E Test] PR CI & Staging Workflow Configuration tests passed!\n")
 
 
+def test_frontend_user_selector_layout():
+    """
+    Verifies that the user selector is positioned in a top line above the actions
+    on the top right of the screen.
+    """
+    print("[E2E Test] Testing Frontend User Selector Layout...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    html_path = os.path.join(frontend_dir, "index.html")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    assert 'class="header-right"' in html
+    assert 'class="user-selector-row"' in html
+    assert 'id="userIdInput"' in html
+    assert 'class="header-actions"' in html
+
+    # Verify user-selector-row comes before header-actions inside header-right
+    user_pos = html.find('class="user-selector-row"')
+    actions_pos = html.find('class="header-actions"')
+    assert user_pos < actions_pos, "user-selector-row must appear before header-actions"
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css = f.read()
+
+    assert '.header-right' in css
+    assert '.user-selector-row' in css
+    assert '.user-input' in css
+    assert 'align-items: flex-end;' in css
+
+    print("[E2E Test] Frontend User Selector Layout tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -377,5 +411,6 @@ if __name__ == "__main__":
     test_frontend_repo_link()
     test_frontend_horizontal_card_grid()
     test_pr_ci_staging_workflow()
+    test_frontend_user_selector_layout()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

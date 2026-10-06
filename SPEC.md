@@ -1,9 +1,37 @@
 # Personal Search Assistant — Technical & Product Specification
 
-## 1. Overview & Vision
+## 1. Overview
 The **Personal Search Assistant** is an autonomous AI-driven search and monitoring agent. It allows users to define recurring or ad-hoc web search tasks in plain natural language (e.g., *"Find me jobs in Tel Aviv Java backend"*, *"Check for apartment rent drops in downtown"*). 
 
 The system leverages **Google Gemini AI with live Google Search Grounding** to search the live web, extract structured items (titles, links, locations, details), persist state locally or in the cloud, and notify users via **Telegram**, a **responsive Web UI**, and a **CLI interface**.
+
+## 2. Requirements
+- **Natural Language Search Task Management**: Users can create, update, list, run, and delete persistent search tasks defined in plain English.
+- **AI Search Grounding & Extraction**: The agent executes live Google Search queries via Gemini (`gemini-3.6-flash`), extracts structured results (title, URL, description, location, source domain), and auto-names tasks.
+- **Telegram Conversational Interface**: An interactive Telegram Bot powered by Gemini parses conversational user messages (create task, list tasks, run task, batch run, delete task).
+- **Multi-Client Execution**: Supports user-triggered ad-hoc execution via Web UI, automated batch runs via daily Cloud Scheduler cron, and manual runs via CLI.
+- **Dual-Database Persistence**: Automatically uses SQLite (`assistant.db`) locally and Google Cloud Firestore in production when running on Google Cloud Run.
+- **Responsive Web Interface**: Displays tasks, execution status, live date, top-right user switcher, and extraction results in a horizontal cards layout with expandable items.
+
+## 3. User Experience
+- **Header Layout**:
+  - **Left**: Application title (`AI Personal Search Assistant`) and dynamic current date with calendar badge (`📅 Tuesday, October 6, 2026`).
+  - **Top Right (2-Tier Layout)**:
+    - **Top Line (above actions)**: User selector row (`👤 User: [noam]`) right-aligned at the top of the screen.
+    - **Bottom Line (below user selector)**: Primary action buttons (`GitHub`, `+ New Task`, `Refresh`, `Run All`) right-aligned.
+- **Task Cards**:
+  - Displays task name, status badge (`SUCCESS`, `FAILED`, `RUNNING`, `Pending`), task description, last run timestamp, and action buttons (`Run Task`, `✏️ Edit`, `Delete`).
+- **Extraction Results Presentation**:
+  - Up to 4 extracted items are displayed horizontally side-by-side in a responsive CSS Grid (`.result-cards-grid`).
+  - When more than 4 items are extracted, the first 4 items are shown initially, with an expand button (`••• Show X more items`) that reveals all remaining cards upon click and toggles back to `▲ Show less`.
+  - Individual cards display title, location pill, source website link, line-clamped description with hover tooltip, and outbound link button (`View Details ↗`).
+- **Modal Dialog**:
+  - Modal dialog overlay for creating and editing tasks with keyboard accessibility (`ESC` key support and outside-click dismiss).
+- **Footer**:
+  - App footer with Octocat icon and hyperlink to the GitHub repository.
+
+## 4. Architecture
+The system follows a modular client-server architecture with an AI agent layer and dual-persistence storage:
 
 ```mermaid
 flowchart TD
@@ -52,22 +80,17 @@ flowchart TD
     Storage -.->|K_SERVICE set| Firestore
 ```
 
----
-
-## 2. Directory Structure & File Inventory
-
-The repository is organized into a modular backend, a TypeScript frontend, and deployment configurations:
-
+### Directory Structure & File Inventory
 ```
 personal_search_assistant/
 │
-├── SPEC.md                         # This specification document
+├── SPEC.md                         # Complete project specification (Sections 1-12)
 ├── main.py                         # CLI entrypoint for local execution
 ├── requirements.txt                # Root Python package dependencies
 ├── test_e2e.py                     # Comprehensive end-to-end test suite
 ├── deploy_cloud_scheduler.sh       # Script to deploy Google Cloud Scheduler job
 ├── assistant.db                    # Local SQLite database (auto-generated)
-├── debug_last_run.log              # Debug log for the latest task execution
+├── debug_last_run.log              # Debug log for latest task execution
 │
 ├── backend/                        # Backend FastAPI service
 │   ├── __init__.py
@@ -77,7 +100,8 @@ personal_search_assistant/
 │   ├── agent/                      # AI agents package
 │   │   ├── __init__.py             # Package exports
 │   │   ├── classify_agent.py       # Gemini conversational intent classifier
-│   │   └── extract_content_agent.py # Gemini live search grounding & extraction
+│   │   ├── extract_content_agent.py# Gemini live search grounding & extraction
+│   │   └── skills.py               # Workspace skill loader
 │   ├── db.py                       # Database abstraction & SQLite implementation
 │   ├── cloud_db.py                 # Google Cloud Firestore integration
 │   ├── notifier.py                 # Telegram notification formatting & HTTP dispatch
@@ -86,26 +110,52 @@ personal_search_assistant/
 │   └── Dockerfile                  # Container definition for Google Cloud Run
 │
 ├── frontend/                       # Web Single-Page Application (SPA)
-│   ├── index.html                  # HTML entrypoint with modal and task list UI
+│   ├── index.html                  # HTML entrypoint with 2-tier header & modal
 │   ├── package.json                # Frontend dependencies (Vite, TypeScript)
 │   ├── tsconfig.json               # TypeScript configuration
 │   ├── vite.config.ts              # Vite build configuration
 │   └── src/
-│       ├── main.ts                 # UI controller, event listeners, rendering
+│       ├── main.ts                 # UI controller, event listeners, card rendering
 │       ├── api.ts                  # REST API client
 │       ├── types.ts                # TypeScript interfaces (Task, Payloads)
-│       └── styles.css              # Custom styling & responsive layouts
+│       └── styles.css              # Custom styling, 2-tier header & card grid
 │
 └── .github/
     └── workflows/
-        └── deploy-backend.yml      # CI/CD deployment workflow to Google Cloud Run
+        ├── deploy-backend.yml      # CD workflow to deploy backend to production on main
+        └── pr-test-and-staging.yml # CI/CD workflow running tests & deploying to staging on PR
 ```
 
----
+## 5. Technology Stack
+- **Backend**: Python 3.12, FastAPI, Uvicorn, Google GenAI SDK (`google-genai`), HTTPX, BeautifulSoup4, pytest.
+- **AI Model**: Google Gemini (`gemini-3.6-flash`) with dynamic Google Search Grounding (`tools: [{"google_search": {}}]`).
+- **Frontend**: TypeScript, Vite 5, Vanilla DOM / Modern CSS (CSS Grid, Flexbox, Container Queries).
+- **Storage**: SQLite 3 (local development), Google Cloud Firestore (Cloud Run serverless production).
+- **Cloud Infrastructure**: Google Cloud Run, Google Cloud Scheduler, Vercel (Frontend hosting & PR previews).
+- **CI/CD**: GitHub Actions (`pr-test-and-staging.yml`, `deploy-backend.yml`).
 
-## 3. Data Models & Schemas
+## 6. Backend
+- **REST API Router (`backend/api.py`)**: Exposes endpoints for task CRUD, single/batch task execution, health check, and Telegram webhook.
+- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, and triggers notifications.
+- **Search Extraction Agent (`backend/agent/extract_content_agent.py`)**: Calls Gemini with Search Grounding to extract structured items and generate concise task titles. Injects workspace skills from `.agents/skills/`. Includes IPv4 socket fallback for macOS networking.
+- **Intent Classifier (`backend/agent/classify_agent.py`)**: Parses Telegram messages into actions (`CREATE_TASK`, `LIST_TASKS`, `RUN_TASK`, `RUN_ALL_TASKS`, `DELETE_TASK`, `REPLY`).
+- **Persistence (`backend/db.py`, `backend/cloud_db.py`)**: Transparent switching between SQLite and Cloud Firestore based on the `K_SERVICE` environment variable.
+- **Notifier (`backend/notifier.py`)**: Formats extraction results into clean Markdown Telegram messages with hyperlinks and sends them via Telegram Bot API.
 
-### 3.1 Task Entity
+## 7. Frontend
+- **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, task card list, and create/edit modal.
+- **Header Layout**:
+  - `.header-brand`: Title and live formatted date.
+  - `.header-right`: Flex column right-aligned container.
+  - `.user-selector-row`: Top line with user ID input (`userIdInput`).
+  - `.header-actions`: Bottom line with GitHub link, New Task button, Refresh button, and Run All button.
+- **Results Card Grid (`frontend/src/styles.css`, `frontend/src/main.ts`)**:
+  - Renders up to 4 items horizontally in `.result-cards-grid` with dynamic `--grid-columns: 1..4`.
+  - Extra items (> 4) rendered inside `.extra-results-container.hidden` and toggled via `.expand-results-btn`.
+  - Responsive breakpoints: 4 columns on desktop (>900px), 2 columns on tablets (641px–900px), and 1 column on mobile (≤640px).
+
+## 8. Data Model
+### Task Entity Schema
 Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this schema:
 
 | Field | Type | Description |
@@ -120,7 +170,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 | `last_error` | `TEXT` | Error trace if last execution failed |
 | `created_at` | `TEXT` | Record creation timestamp |
 
-### 3.2 Extracted Result JSON Structure (stored in `last_result`)
+### Extracted Result JSON Structure (stored in `last_result`)
 ```json
 {
   "task_title": "Tel Aviv Java Backend Jobs",
@@ -129,16 +179,14 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
       "title": "Senior Backend Developer - Java/Spring",
       "link": "https://example.com/jobs/123",
       "description": "Requires 5+ years experience with Spring Boot, Docker, and AWS.",
-      "location": "Tel Aviv-Yafo"
+      "location": "Tel Aviv-Yafo",
+      "website": "example.com"
     }
   ]
 }
 ```
 
----
-
-## 4. API Reference (`/api`)
-
+## 9. API
 | Method | Endpoint | Query / Body Parameters | Purpose |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/health` | None | Service health check |
@@ -150,43 +198,31 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 | `DELETE` | `/api/tasks/{id}` | `user_id?: string` (query) | Deletes a task |
 | `POST` | `/api/telegram/webhook` | Telegram Update JSON | Ingests Telegram Bot messages & dispatches AI agent actions |
 
----
+## 10. Configuration
+- **`GEMINI_API_KEY`**: Google Gemini API key used for live search grounding and intent classification.
+- **`TELEGRAM_BOT_TOKEN`**: Bot authentication token from BotFather for sending notifications and webhook processing.
+- **`TELEGRAM_CHAT_ID`**: Authorized Telegram chat identifier for receiving automated updates.
+- **`K_SERVICE`**: Environment variable set automatically by Cloud Run; when present, enables Firestore over SQLite.
+- **`GCP_SA_KEY`**: GitHub Actions secret containing service account JSON credentials for Google Cloud deployments.
+- **`VITE_API_URL`**: Frontend environment variable specifying backend API base URL (defaults to `/api` proxy).
 
-## 5. Core Workflows & Intelligence
+## 11. Testing
+- **End-to-End Test Suite (`test_e2e.py`)**:
+  - `test_db_operations`: SQLite CRUD operations and state tracking.
+  - `test_fastapi_rest_endpoints`: Health check, task CRUD, and execution endpoints.
+  - `test_telegram_notifier`: Message formatting and HTTP dispatch with mocked credentials.
+  - `test_telegram_webhook_commands`: Conversational intent parsing and authentication checks.
+  - `test_workspace_skills`: Workspace skill discovery from `.agents/skills/`.
+  - `test_frontend_current_date`: Current date DOM element, script logic, and styling.
+  - `test_frontend_repo_link`: GitHub repository links in header and footer.
+  - `test_frontend_horizontal_card_grid`: Up to 4 horizontal cards, expand toggle, and CSS grid rules.
+  - `test_pr_ci_staging_workflow`: GitHub Actions PR testing and staging deployment workflow validation.
+  - `test_frontend_user_selector_layout`: 2-tier header right alignment with user selector row on top line.
+  - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
+- **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 
-### 5.1 Search Grounding & Automatic Task Naming (`backend/agent/extract_content_agent.py`)
-1. Receives natural language `task_description`.
-2. Calls Gemini (`gemini-3.6-flash`) with dynamic Google Search Grounding (`tools: [{"google_search": {}}]`).
-3. Formats output into a concise 3-5 word title (`task_title`) and structured `items`.
-4. If the task was previously unnamed or had a temporary default name, the controller updates `task.name` to match `task_title`.
-5. Includes socket patches on macOS to force IPv4 resolution and avoid DNS lookups hanging on IPv6.
-
-### 5.2 Telegram Conversational Agent (`backend/agent/classify_agent.py`)
-The Telegram webhook parses natural language intents using Gemini:
-- **`LIST_TASKS`**: "Show my tasks" / "What am I tracking?"
-- **`CREATE_TASK`**: "Find me flights to Rome" / "Track used M3 MacBooks"
-- **`RUN_TASK`**: "Run task 2" / "Check job listings"
-- **`RUN_ALL_TASKS`**: "Run all tasks" / "Check everything"
-- **`DELETE_TASK`**: "Delete task 3"
-- **`REPLY`**: Conversational replies / Help
-- **Security**: Validates incoming `chat.id` against `TELEGRAM_CHAT_ID`.
-
-### 5.3 Frontend Results Presentation & Responsive Cards Layout
-- Displays extracted search results for each task in visually rich cards (`.result-item-card`).
-- Up to 4 cards are presented horizontally side-by-side in a responsive CSS Grid (`.result-cards-grid`) with dynamically configured column tracks (`--grid-columns`).
-- When more than 4 items are present, the first 4 items are shown initially, accompanied by an expand button (`••• Show X more items`) that reveals all remaining cards in the horizontal grid upon click and toggles back to `▲ Show less`.
-- Responsive breakpoints ensure readability across devices: up to 4 columns on desktop (> 900px), 2 columns on tablets (641px - 900px), and 1 column on mobile (<= 640px).
-- Individual cards format titles, location pills, source website badges with outbound hyperlinks, line-clamped descriptions with tooltip hover, and action buttons.
-
----
-
-## 6. Deployment & Infrastructure
-
-- **Cloud Run (Production)**: Serverless container hosting the FastAPI backend via `backend/Dockerfile` (`personal-search-assistant-api`).
-- **Cloud Run (Staging)**: Dedicated staging service (`personal-search-assistant-api-staging`) deployed automatically on passing pull requests.
-- **Cloud Firestore**: Activated automatically when `K_SERVICE` is set in Cloud Run.
-- **Cloud Scheduler**: Scheduled trigger deployed via `deploy_cloud_scheduler.sh` running daily (e.g. 20:00 Asia/Jerusalem) against `/api/tasks/run-all`.
-- **Frontend Hosting**: Built with Vite and deployable to Vercel (with automatic PR preview deployments).
-- **CI/CD Pipelines**:
-  - **PR Testing & Staging (`.github/workflows/pr-test-and-staging.yml`)**: Runs full automated tests (`pytest`, `npm run build`) on every pull request. If all tests pass, automatically deploys the backend to the `personal-search-assistant-api-staging` Cloud Run service.
-  - **Production Deployment (`.github/workflows/deploy-backend.yml`)**: Automatically deploys the backend to production Cloud Run (`personal-search-assistant-api`) when code is merged into `main`.
+## 12. Deployment
+- **Cloud Run (Production)**: Serverless backend container deployed automatically via `.github/workflows/deploy-backend.yml` on push to `main` (`personal-search-assistant-api`).
+- **Cloud Run (Staging)**: Dedicated staging backend deployed automatically via `.github/workflows/pr-test-and-staging.yml` on passing pull requests (`personal-search-assistant-api-staging`).
+- **Cloud Scheduler**: Daily cron job deployed via `deploy_cloud_scheduler.sh` triggering `/api/tasks/run-all`.
+- **Frontend Hosting**: Deployable to Vercel with automatic pull request preview deployments.
