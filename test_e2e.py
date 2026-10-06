@@ -548,8 +548,14 @@ def test_task_result_diffing_and_new_item_annotation():
     2. Treats repeat run with identical items as unchanged (is_new = False, has_new_items = False)
     3. Detects added items on subsequent run (is_new = True, has_new_items = True, new_items_count > 0)
     """
-    print("[E2E Test] Testing Task Result Diffing & New Item Annotation...")
-    from backend.controller import diff_and_annotate_results
+    from backend.differ import (
+        diff_and_annotate_results,
+        extract_item_fingerprint,
+        has_task_new_items,
+        parse_result_items,
+    )
+    from backend.controller import diff_and_annotate_results as controller_diff
+    assert controller_diff is diff_and_annotate_results, "Controller must re-export diff_and_annotate_results"
 
     initial_result = json.dumps({
         "task_title": "Tel Aviv AI Jobs",

@@ -4,33 +4,7 @@ import httpx
 from typing import List, Dict, Any, Optional
 
 
-def has_task_new_items(task: Dict[str, Any]) -> bool:
-    """
-    Determines if a task execution produced new items compared to the baseline/previous run.
-    """
-    if task.get("has_new_items") is True:
-        return True
-
-    raw_result = task.get("last_result")
-    if not raw_result:
-        return False
-
-    try:
-        clean_raw = str(raw_result).replace("```json", "").replace("```", "").strip()
-        parsed = json.loads(clean_raw)
-        if isinstance(parsed, dict) and parsed.get("has_new_items") is True:
-            return True
-        items = []
-        if isinstance(parsed, list):
-            items = parsed
-        elif isinstance(parsed, dict):
-            for key in ["items", "results", "events", "data"]:
-                if isinstance(parsed.get(key), list):
-                    items = parsed[key]
-                    break
-        return any(isinstance(i, dict) and i.get("is_new") is True for i in items)
-    except Exception:
-        return False
+from backend.differ import has_task_new_items
 
 
 def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:

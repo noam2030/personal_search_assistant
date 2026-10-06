@@ -102,6 +102,7 @@ personal_search_assistant/
 │   ├── main.py                     # FastAPI app setup, CORS, entrypoint
 │   ├── api.py                      # REST API endpoints & Telegram webhook
 │   ├── controller.py               # Task execution controller & dispatcher
+│   ├── differ.py                   # Search result item fingerprinting & diff engine
 │   ├── agent/                      # AI agents package
 │   │   ├── __init__.py             # Package exports
 │   │   ├── classify_agent.py       # Gemini conversational intent classifier
@@ -141,14 +142,12 @@ personal_search_assistant/
 
 ## 6. Backend
 - **REST API Router (`backend/api.py`)**: Exposes endpoints for task CRUD, single/batch task execution, health check, and Telegram webhook.
-- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, and executes item diffing:
-  - `extract_item_fingerprint`: Produces canonical fingerprints (`title::link` or normalized identifiers) for item deduplication.
-  - `diff_and_annotate_results`: Diffs newly extracted items against previous run results. On first run, establishes baseline with `is_new: false` and `has_new_items: false`. On subsequent runs, annotates newly discovered items with `is_new: true`.
-  - Attaches `has_new_items` and `new_items_count` metadata to the returned task dictionary and stored result JSON.
+- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, applies diffing via `backend.differ`, and attaches execution metadata (`has_new_items`, `new_items_count`).
+- **Differ Engine (`backend/differ.py`)**: Dedicated module providing canonical item fingerprinting (`extract_item_fingerprint`), result array parsing (`parse_result_items`), baseline and subsequent diffing (`diff_and_annotate_results`), and change detection (`has_task_new_items`).
 - **Search Extraction Agent (`backend/agent/extract_content_agent.py`)**: Calls Gemini with Search Grounding to extract structured items and generate concise task titles. Injects workspace skills from `.agents/skills/`. Includes IPv4 socket fallback for macOS networking.
 - **Intent Classifier (`backend/agent/classify_agent.py`)**: Parses Telegram messages into actions (`CREATE_TASK`, `LIST_TASKS`, `RUN_TASK`, `RUN_ALL_TASKS`, `DELETE_TASK`, `REPLY`).
 - **Persistence (`backend/db.py`, `backend/cloud_db.py`)**: Transparent switching between SQLite and Cloud Firestore based on the `K_SERVICE` environment variable.
-- **Notifier (`backend/notifier.py`)**: Evaluates `has_task_new_items` across executed tasks. If all tasks have unchanged items (or first baseline run), completely skips sending Telegram messages. When new items are found, formats clean Markdown Telegram messages highlighting only new items with `🆕` tags and sends them via Telegram Bot API.
+- **Notifier (`backend/notifier.py`)**: Evaluates `has_task_new_items` across executed tasks via `backend.differ`. If all tasks have unchanged items (or first baseline run), completely skips sending Telegram messages. When new items are found, formats clean Markdown Telegram messages highlighting only new items with `🆕` tags and sends them via Telegram Bot API.
 
 ## 7. Frontend
 - **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, task card list, and create/edit modal.
