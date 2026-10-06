@@ -15,7 +15,7 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
 
 ## 3. User Experience
 - **Header Layout**:
-  - **Left**: Application title (`AI Personal Search Assistant`) and GitHub repository link (`GitHub Repository ↗`) placed below the title in `.header-brand`.
+  - **Left**: Application title (`AI Personal Search Assistant`), GitHub repository link (`GitHub Repository ↗`), and connected backend API Base URL indicator (`API: <url> ↗`) placed below the GitHub link in `.header-brand`.
   - **Top Right (2-Tier Layout)**:
     - **Top Line (above actions)**: User selector row (`👤 User: [noam]`) right-aligned at the top of the screen.
     - **Bottom Line (below user selector)**: Primary action buttons (`+ New Task`, `Refresh`, `Run All`) right-aligned.
@@ -145,7 +145,7 @@ personal_search_assistant/
 ## 7. Frontend
 - **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, task card list, and create/edit modal.
 - **Header Layout**:
-  - `.header-brand`: Title and brand GitHub repository link (`.brand-github-link`).
+  - `.header-brand`: Title, brand GitHub repository link (`.brand-github-link`), and connected API URL badge (`.brand-api-url`).
   - `.header-right`: Flex column right-aligned container.
   - `.user-selector-row`: Top line with user ID input (`userIdInput`).
   - `.header-actions`: Bottom line with New Task button, Refresh button, and Run All button.
@@ -225,6 +225,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_pr_ci_staging_workflow`: GitHub Actions PR testing and staging deployment workflow validation.
   - `test_frontend_user_selector_layout`: 2-tier header right alignment with user selector row on top line.
   - `test_frontend_api_base_url_resolution`: Verifies dynamic API base URL resolution to Staging, Production, and Local dev.
+  - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
   - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 

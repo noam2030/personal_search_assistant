@@ -422,6 +422,48 @@ def test_frontend_api_base_url_resolution():
     print("[E2E Test] Frontend API Base URL Resolution tests passed!\n")
 
 
+def test_frontend_api_base_url_display():
+    """
+    Verifies that the active backend API base URL is rendered directly under the GitHub link
+    inside the brand header (.header-brand).
+    """
+    print("[E2E Test] Testing Frontend API Base URL Display under GitHub Link...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    html_path = os.path.join(frontend_dir, "index.html")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    assert 'id="brandApiUrlContainer"' in html
+    assert 'id="apiBaseUrlLink"' in html
+    assert 'id="apiBaseUrlText"' in html
+    assert 'class="brand-api-url"' in html
+
+    # Verify brandApiUrlContainer is positioned after githubRepoLink inside .header-brand
+    github_pos = html.find('id="githubRepoLink"')
+    api_url_pos = html.find('id="brandApiUrlContainer"')
+    assert github_pos != -1, "githubRepoLink must exist"
+    assert api_url_pos != -1, "brandApiUrlContainer must exist"
+    assert github_pos < api_url_pos, "API Base URL must be placed under the GitHub link"
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css = f.read()
+
+    assert '.brand-api-url' in css
+    assert '.api-url-label' in css
+    assert '.brand-api-link' in css
+
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+
+    assert 'initApiBaseUrlDisplay' in ts_content
+    assert 'apiBaseUrlLink' in ts_content
+
+    print("[E2E Test] Frontend API Base URL Display tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -434,5 +476,6 @@ if __name__ == "__main__":
     test_pr_ci_staging_workflow()
     test_frontend_user_selector_layout()
     test_frontend_api_base_url_resolution()
+    test_frontend_api_base_url_display()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
