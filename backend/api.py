@@ -77,13 +77,14 @@ def update_task(task_id: int, req: UpdateTaskRequest):
 
 @router.post("/tasks/{task_id}/run", response_model=TaskResponse)
 def execute_task(task_id: int):
-    """Triggers live execution of a task by ID and returns updated task with results."""
+    """Triggers live execution of a task by ID and dispatches Telegram notification if new items are found."""
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found.")
 
     try:
         updated_task = run_task_by_id(task_id=task_id)
+        send_telegram_notification(user_id=task["user_id"], results=[updated_task])
         return updated_task
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task execution failed: {str(e)}")
