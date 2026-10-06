@@ -505,6 +505,26 @@ def test_frontend_compact_task_card_layout():
     print("[E2E Test] Frontend Compact Task Card Layout tests passed!\n")
 
 
+def test_frontend_omits_location_pill():
+    """
+    Verifies that location pills are removed from item results in frontend/src/main.ts,
+    while keeping location keys in ignoredKeys to prevent accidental fallback rendering.
+    """
+    print("[E2E Test] Testing Frontend Omits Location Pill from Results...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+
+    assert 'result-pill-location' not in ts_content, "result-pill-location must be removed from item rendering"
+    assert '<strong>Location:</strong>' not in ts_content, "Location label must not be rendered in items"
+    assert 'locationKey' in ts_content, "locationKey must still be tracked"
+    assert 'ignoredKeys' in ts_content, "ignoredKeys must be present"
+
+    print("[E2E Test] Frontend Omits Location Pill tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -519,5 +539,6 @@ if __name__ == "__main__":
     test_frontend_api_base_url_resolution()
     test_frontend_api_base_url_display()
     test_frontend_compact_task_card_layout()
+    test_frontend_omits_location_pill()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

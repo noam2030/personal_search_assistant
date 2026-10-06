@@ -262,9 +262,6 @@ function renderSingleItemText(item: any): string {
 
   const locationKey = Object.keys(item).find((k) => /^(location|venue|place|city|address)$/i.test(k))
     || Object.keys(item).find((k) => /location|venue|city/i.test(k));
-  const locationVal = locationKey && item[locationKey] !== null && item[locationKey] !== undefined
-    ? String(item[locationKey]).trim()
-    : null;
 
   const siteKey = Object.keys(item).find((k) => /^(website|source|source_website|site|domain|publisher)$/i.test(k))
     || Object.keys(item).find((k) => /(website|source_website)/i.test(k));
@@ -273,10 +270,6 @@ function renderSingleItemText(item: any): string {
   const ignoredKeys = new Set([titleKey, linkKey, descKey, locationKey, siteKey].filter(Boolean));
 
   const metaPills: string[] = [];
-
-  if (locationVal) {
-    metaPills.push(`<span class="result-pill result-pill-location"><strong>Location:</strong> ${escapeHtml(locationVal)}</span>`);
-  }
 
   if (websiteInfo) {
     const websiteHtml = websiteInfo.url
