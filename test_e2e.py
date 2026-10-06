@@ -464,6 +464,47 @@ def test_frontend_api_base_url_display():
     print("[E2E Test] Frontend API Base URL Display tests passed!\n")
 
 
+def test_frontend_compact_task_card_layout():
+    """
+    Verifies that task cards have action buttons (Run, Edit, Delete) positioned beside the status badge,
+    omit the task description and last run rows, omit total results count badge, and retain the expand toggle.
+    """
+    print("[E2E Test] Testing Frontend Compact Task Card Layout...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+
+    # 1. Action buttons placed inside task-status-actions
+    assert 'class="task-status-actions"' in ts_content, "Must group status badge and actions together"
+    status_act_pos = ts_content.find('class="task-status-actions"')
+    badge_pos = ts_content.find('class="badge', status_act_pos)
+    actions_pos = ts_content.find('class="task-actions"', status_act_pos)
+    assert status_act_pos != -1 and badge_pos != -1 and actions_pos != -1
+    assert badge_pos < actions_pos, "Status badge should appear before action buttons inside task-status-actions"
+
+    # 2. Omit task description and last run from task card HTML
+    assert '<strong>Task Description:</strong>' not in ts_content, "Task description must not be displayed on card"
+    assert '<strong>Last Run:</strong>' not in ts_content, "Last run timestamp must not be displayed on card"
+
+    # 3. Omit total results count badge from renderResultSection
+    assert 'result-header-title' not in ts_content, "Result header title must be removed"
+    assert 'getItemCount' not in ts_content, "Total results count badge must be removed"
+
+    # 4. Retain expand toggle for extra results
+    assert 'expand-results-btn' in ts_content, "Must retain expand-results-btn"
+    assert "'result' : 'results'" in ts_content, "Must toggle between result and results based on extraCount"
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css = f.read()
+
+    assert '.task-status-actions' in css, "Must define .task-status-actions in styles.css"
+
+    print("[E2E Test] Frontend Compact Task Card Layout tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -477,5 +518,6 @@ if __name__ == "__main__":
     test_frontend_user_selector_layout()
     test_frontend_api_base_url_resolution()
     test_frontend_api_base_url_display()
+    test_frontend_compact_task_card_layout()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

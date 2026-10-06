@@ -20,10 +20,12 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
     - **Top Line (above actions)**: User selector row (`👤 User: [noam]`) right-aligned at the top of the screen.
     - **Bottom Line (below user selector)**: Primary action buttons (`+ New Task`, `Refresh`, `Run All`) right-aligned.
 - **Task Cards**:
-  - Displays task name, status badge (`SUCCESS`, `FAILED`, `RUNNING`, `Pending`), task description, last run timestamp, and action buttons (`Run Task`, `✏️ Edit`, `Delete`).
+  - Displays task name on the left and status badge (`SUCCESS`, `FAILED`, `RUNNING`, `Pending`) along with action buttons (`Run Task`, `✏️ Edit`, `Delete`) inline beside the badge in `.task-status-actions`.
+  - Task description and last run timestamp metadata are omitted from the card display for a clean, compact view (task description remains editable via the Edit modal).
 - **Extraction Results Presentation**:
   - Up to 4 extracted items are displayed horizontally side-by-side in a responsive CSS Grid (`.result-cards-grid`).
-  - When more than 4 items are extracted, the first 4 items are shown initially, with an expand button (`••• Show X more items`) that reveals all remaining cards upon click and toggles back to `▲ Show less`.
+  - Total number of results badge is omitted to reduce visual clutter.
+  - When more than 4 items are extracted, the first 4 items are shown initially, with an expand toggle button (`••• Show X more results`) that reveals all remaining cards upon click and toggles back to `▲ Show less`.
   - Individual cards display title, location pill, source website link, line-clamped description with hover tooltip, and outbound link button (`View Details ↗`).
 - **Modal Dialog**:
   - Modal dialog overlay for creating and editing tasks with keyboard accessibility (`ESC` key support and outside-click dismiss).
@@ -153,6 +155,10 @@ personal_search_assistant/
   - Renders up to 4 items horizontally in `.result-cards-grid` with dynamic `--grid-columns: 1..4`.
   - Extra items (> 4) rendered inside `.extra-results-container.hidden` and toggled via `.expand-results-btn`.
   - Responsive breakpoints: 4 columns on desktop (>900px), 2 columns on tablets (641px–900px), and 1 column on mobile (≤640px).
+- **Compact Task Cards (`frontend/src/main.ts`, `frontend/src/styles.css`)**:
+  - Task status badge (`.badge`) and action buttons (`.task-actions`: Run Task, Edit, Delete) are grouped inline inside `.task-status-actions` within `.task-header`.
+  - Task description and last run timestamp rows are omitted from card view for visual clarity.
+  - Total number of results badge is removed from the results container.
 - **Dynamic API Base URL Resolution (`frontend/src/api.ts`)**:
   - Automatically resolves backend target via `resolveApiBaseUrl()`:
   - If `VITE_API_URL` is set, uses that URL.
@@ -226,6 +232,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_frontend_user_selector_layout`: 2-tier header right alignment with user selector row on top line.
   - `test_frontend_api_base_url_resolution`: Verifies dynamic API base URL resolution to Staging, Production, and Local dev.
   - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
+  - `test_frontend_compact_task_card_layout`: Verifies inline header actions, omission of description/last run/total results badge, and retention of expand toggle.
   - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 
