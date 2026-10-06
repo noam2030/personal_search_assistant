@@ -123,8 +123,10 @@ def test_fastapi_rest_endpoints():
         assert run_res.status_code == 200
         updated = run_res.json()
         assert updated["name"] == "Tel Aviv Lead Backend Developer Roles"
-        assert updated["last_status"] == "SUCCESS"
-        assert updated["last_result"] == mock_gemini_json
+        res_parsed = json.loads(updated["last_result"])
+        assert res_parsed["task_title"] == "Tel Aviv Lead Backend Developer Roles"
+        assert res_parsed["items"][0]["title"] == "Lead Backend Engineer"
+        assert res_parsed["items"][0]["is_new"] is False
 
     # 7. Mocked Batch Execute Tasks via POST /api/tasks/run-all (Cloud Scheduler endpoint)
     with patch("backend.controller.extract_content", return_value=mock_gemini_json):
@@ -169,27 +171,41 @@ from backend.notifier import format_telegram_message, send_telegram_notification
 
 def test_telegram_notifier():
     print("[E2E Test] Testing Telegram notification module...")
-    mock_results = [{
+    mock_results_unchanged = [{
         "id": 1,
         "name": "Tel Aviv Java Jobs",
         "last_status": "SUCCESS",
-        "last_result": json.dumps({"items": [{"title": "Senior Java Developer", "link": "https://example.com/job"}]}),
+        "last_result": json.dumps({"items": [{"title": "Senior Java Developer", "link": "https://example.com/job", "is_new": False}], "has_new_items": False}),
         "last_error": None,
     }]
-    formatted = format_telegram_message("noam", mock_results)
+    mock_results_new = [{
+        "id": 1,
+        "name": "Tel Aviv Java Jobs",
+        "last_status": "SUCCESS",
+        "last_result": json.dumps({"items": [{"title": "Senior Java Developer", "link": "https://example.com/job", "is_new": True}], "has_new_items": True}),
+        "last_error": None,
+    }]
+    formatted = format_telegram_message("noam", mock_results_new)
     assert "Tel Aviv Java Jobs" in formatted
     assert "Senior Java Developer" in formatted
 
-    # Test skipped notification when tokens absent
+    # 1. Test skipped notification when tokens absent
     with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": ""}):
-        assert send_telegram_notification("noam", mock_results) is False
+        assert send_telegram_notification("noam", mock_results_new) is False
 
-    # Test successful notification with mocked httpx.post
+    # 2. Test skipped notification when NO new items are present (e.g. unchanged repeat run)
+    with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123", "TELEGRAM_CHAT_ID": "456"}):
+        with patch("httpx.post") as mock_post:
+            success = send_telegram_notification("noam", mock_results_unchanged)
+            assert success is False
+            mock_post.assert_not_called()
+
+    # 3. Test successful notification when new items ARE present
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123", "TELEGRAM_CHAT_ID": "456"}):
         with patch("httpx.post", return_value=mock_resp) as mock_post:
-            success = send_telegram_notification("noam", mock_results)
+            success = send_telegram_notification("noam", mock_results_new)
             assert success is True
             mock_post.assert_called_once()
 
@@ -525,6 +541,98 @@ def test_frontend_omits_location_pill():
     print("[E2E Test] Frontend Omits Location Pill tests passed!\n")
 
 
+def test_task_result_diffing_and_new_item_annotation():
+    """
+    Verifies that diff_and_annotate_results properly:
+    1. Treats initial run as baseline (is_new = False, has_new_items = False)
+    2. Treats repeat run with identical items as unchanged (is_new = False, has_new_items = False)
+    3. Detects added items on subsequent run (is_new = True, has_new_items = True, new_items_count > 0)
+    """
+    print("[E2E Test] Testing Task Result Diffing & New Item Annotation...")
+    from backend.controller import diff_and_annotate_results
+
+    initial_result = json.dumps({
+        "task_title": "Tel Aviv AI Jobs",
+        "items": [
+            {"title": "AI Engineer", "link": "https://example.com/ai"},
+            {"title": "ML Researcher", "link": "https://example.com/ml"}
+        ]
+    })
+
+    # Step 1: First run (baseline)
+    annotated_1, has_new_1, count_1 = diff_and_annotate_results(
+        prev_raw_result=None,
+        new_raw_result=initial_result,
+    )
+    assert has_new_1 is False, "First run must not flag new items"
+    assert count_1 == 0
+    parsed_1 = json.loads(annotated_1)
+    assert all(i["is_new"] is False for i in parsed_1["items"])
+
+    # Step 2: Repeat run with identical items
+    annotated_2, has_new_2, count_2 = diff_and_annotate_results(
+        prev_raw_result=annotated_1,
+        new_raw_result=initial_result,
+    )
+    assert has_new_2 is False, "Repeat run with identical items must have has_new_items = False"
+    assert count_2 == 0
+    parsed_2 = json.loads(annotated_2)
+    assert all(i["is_new"] is False for i in parsed_2["items"])
+
+    # Step 3: Subsequent run with a newly added item
+    updated_run_result = json.dumps({
+        "task_title": "Tel Aviv AI Jobs",
+        "items": [
+            {"title": "AI Engineer", "link": "https://example.com/ai"},
+            {"title": "ML Researcher", "link": "https://example.com/ml"},
+            {"title": "Lead Agent Developer", "link": "https://example.com/agent"}
+        ]
+    })
+    annotated_3, has_new_3, count_3 = diff_and_annotate_results(
+        prev_raw_result=annotated_2,
+        new_raw_result=updated_run_result,
+    )
+    assert has_new_3 is True, "Subsequent run with new item must have has_new_items = True"
+    assert count_3 == 1
+    parsed_3 = json.loads(annotated_3)
+    items_3 = parsed_3["items"]
+    assert items_3[0]["is_new"] is False
+    assert items_3[1]["is_new"] is False
+    assert items_3[2]["is_new"] is True, "Newly added item must be marked is_new = True"
+
+    print("[E2E Test] Task Result Diffing & New Item Annotation tests passed!\n")
+
+
+def test_frontend_new_item_indication():
+    """
+    Verifies that frontend/src/main.ts renders NEW badge and is-new-item class,
+    and frontend/src/styles.css provides styles for item-badge-new, result-pill-new,
+    and .result-item-card.is-new-item.
+    """
+    print("[E2E Test] Testing Frontend New Item Indication...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+    css_path = os.path.join(frontend_dir, "src", "styles.css")
+
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+
+    assert "item.is_new === true" in ts_content
+    assert "item-badge-new" in ts_content
+    assert "result-pill-new" in ts_content
+    assert "is-new-item" in ts_content
+    assert "'is_new'" in ts_content, "is_new must be in ignoredKeys"
+
+    with open(css_path, "r", encoding="utf-8") as f:
+        css_content = f.read()
+
+    assert ".item-badge-new" in css_content
+    assert ".result-pill-new" in css_content
+    assert ".result-item-card.is-new-item" in css_content
+
+    print("[E2E Test] Frontend New Item Indication tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
@@ -540,5 +648,7 @@ if __name__ == "__main__":
     test_frontend_api_base_url_display()
     test_frontend_compact_task_card_layout()
     test_frontend_omits_location_pill()
+    test_task_result_diffing_and_new_item_annotation()
+    test_frontend_new_item_indication()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

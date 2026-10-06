@@ -8,6 +8,8 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
 ## 2. Requirements
 - **Natural Language Search Task Management**: Users can create, update, list, run, and delete persistent search tasks defined in plain English.
 - **AI Search Grounding & Extraction**: The agent executes live Google Search queries via Gemini (`gemini-3.6-flash`), extracts structured results (title, URL, description, location, source domain), and auto-names tasks.
+- **Item-Level Diffing & New Item Indication**: Extracted results are compared at the item level against previous runs using canonical fingerprints (`title::link`). Initial runs establish a baseline without notifications. On subsequent runs, newly discovered items are tagged with `is_new: true` and displayed with prominent emerald `NEW` badges in the UI.
+- **Selective Telegram Notifications**: Telegram notifications are dispatched **only** when at least one new item is discovered. Scheduled or manual runs where all items remain unchanged (or initial baseline runs) skip notifications entirely.
 - **Telegram Conversational Interface**: An interactive Telegram Bot powered by Gemini parses conversational user messages (create task, list tasks, run task, batch run, delete task).
 - **Multi-Client Execution**: Supports user-triggered ad-hoc execution via Web UI, automated batch runs via daily Cloud Scheduler cron, and manual runs via CLI.
 - **Dual-Database Persistence**: Automatically uses SQLite (`assistant.db`) locally and Google Cloud Firestore in production when running on Google Cloud Run.
@@ -27,6 +29,7 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
   - Total number of results badge is omitted to reduce visual clutter.
   - When more than 4 items are extracted, the first 4 items are shown initially, with an expand toggle button (`••• Show X more results`) that reveals all remaining cards upon click and toggles back to `▲ Show less`.
   - Individual cards display title, source website link, line-clamped description with hover tooltip, and outbound link button (`View Details ↗`) (location is omitted for streamlined cards).
+  - **New Item Visual Indicators**: Items newly discovered in the latest run display a prominent emerald badge `<span class="item-badge-new">NEW</span>` beside the item title, a `<span class="result-pill result-pill-new">✨ NEW</span>` pill in the metadata tags, and an active green card glow (`.is-new-item`). Baseline runs and unchanged repeat runs do not display `NEW` badges.
 - **Modal Dialog**:
   - Modal dialog overlay for creating and editing tasks with keyboard accessibility (`ESC` key support and outside-click dismiss).
 - **Footer**:
@@ -138,11 +141,14 @@ personal_search_assistant/
 
 ## 6. Backend
 - **REST API Router (`backend/api.py`)**: Exposes endpoints for task CRUD, single/batch task execution, health check, and Telegram webhook.
-- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, and triggers notifications.
+- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, and executes item diffing:
+  - `extract_item_fingerprint`: Produces canonical fingerprints (`title::link` or normalized identifiers) for item deduplication.
+  - `diff_and_annotate_results`: Diffs newly extracted items against previous run results. On first run, establishes baseline with `is_new: false` and `has_new_items: false`. On subsequent runs, annotates newly discovered items with `is_new: true`.
+  - Attaches `has_new_items` and `new_items_count` metadata to the returned task dictionary and stored result JSON.
 - **Search Extraction Agent (`backend/agent/extract_content_agent.py`)**: Calls Gemini with Search Grounding to extract structured items and generate concise task titles. Injects workspace skills from `.agents/skills/`. Includes IPv4 socket fallback for macOS networking.
 - **Intent Classifier (`backend/agent/classify_agent.py`)**: Parses Telegram messages into actions (`CREATE_TASK`, `LIST_TASKS`, `RUN_TASK`, `RUN_ALL_TASKS`, `DELETE_TASK`, `REPLY`).
 - **Persistence (`backend/db.py`, `backend/cloud_db.py`)**: Transparent switching between SQLite and Cloud Firestore based on the `K_SERVICE` environment variable.
-- **Notifier (`backend/notifier.py`)**: Formats extraction results into clean Markdown Telegram messages with hyperlinks and sends them via Telegram Bot API.
+- **Notifier (`backend/notifier.py`)**: Evaluates `has_task_new_items` across executed tasks. If all tasks have unchanged items (or first baseline run), completely skips sending Telegram messages. When new items are found, formats clean Markdown Telegram messages highlighting only new items with `🆕` tags and sends them via Telegram Bot API.
 
 ## 7. Frontend
 - **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, task card list, and create/edit modal.
@@ -160,6 +166,7 @@ personal_search_assistant/
   - Task description and last run timestamp rows are omitted from card view for visual clarity.
   - Total number of results badge is removed from the results container.
   - Location pill is omitted from individual item cards while preserving title, source website badge, description, and link.
+  - **New Item Indicators**: Items where `item.is_new === true` display an emerald `<span class="item-badge-new">NEW</span>` badge beside the title, a `<span class="result-pill result-pill-new">✨ NEW</span>` pill tag, and an active glow on `.result-item-card.is-new-item`.
 - **Dynamic API Base URL Resolution (`frontend/src/api.ts`)**:
   - Automatically resolves backend target via `resolveApiBaseUrl()`:
   - If `VITE_API_URL` is set, uses that URL.
@@ -179,7 +186,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 | `task_description` | `TEXT` | Natural language search prompt / instructions |
 | `last_run_at` | `TEXT` | Timestamp of last execution (`YYYY-MM-DD HH:MM:SS`) |
 | `last_status` | `TEXT` | Execution state: `SUCCESS`, `FAILED`, or `Pending` |
-| `last_result` | `TEXT` | JSON payload of extracted search results |
+| `last_result` | `TEXT` | JSON payload of extracted search results (annotated with `is_new`, `has_new_items`, `new_items_count`) |
 | `last_error` | `TEXT` | Error trace if last execution failed |
 | `created_at` | `TEXT` | Record creation timestamp |
 
@@ -187,13 +194,16 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 ```json
 {
   "task_title": "Tel Aviv Java Backend Jobs",
+  "has_new_items": true,
+  "new_items_count": 1,
   "items": [
     {
       "title": "Senior Backend Developer - Java/Spring",
       "link": "https://example.com/jobs/123",
       "description": "Requires 5+ years experience with Spring Boot, Docker, and AWS.",
       "location": "Tel Aviv-Yafo",
-      "website": "example.com"
+      "website": "example.com",
+      "is_new": true
     }
   ]
 }
@@ -206,8 +216,8 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 | `GET` | `/api/tasks` | `user_id: string` (query) | Returns all tasks for the given user |
 | `POST` | `/api/tasks` | `{ "user_id": string, "task_description": string }` | Creates a new task |
 | `PUT` | `/api/tasks/{id}` | `{ "name"?: string, "task_description"?: string }` | Updates task name or prompt |
-| `POST` | `/api/tasks/{id}/run` | None (path `id`) | Triggers immediate execution for a task |
-| `POST` | `/api/tasks/run-all` | `user_id: string` (query) | Batch executes all tasks & dispatches Telegram summary |
+| `POST` | `/api/tasks/{id}/run` | None (path `id`) | Triggers immediate execution for a task (sends Telegram notification only if new items found) |
+| `POST` | `/api/tasks/run-all` | `user_id: string` (query) | Batch executes all tasks & dispatches Telegram summary only if new items found |
 | `DELETE` | `/api/tasks/{id}` | `user_id?: string` (query) | Deletes a task |
 | `POST` | `/api/telegram/webhook` | Telegram Update JSON | Ingests Telegram Bot messages & dispatches AI agent actions |
 
@@ -223,7 +233,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 - **End-to-End Test Suite (`test_e2e.py`)**:
   - `test_db_operations`: SQLite CRUD operations and state tracking.
   - `test_fastapi_rest_endpoints`: Health check, task CRUD, and execution endpoints.
-  - `test_telegram_notifier`: Message formatting and HTTP dispatch with mocked credentials.
+  - `test_telegram_notifier`: Message formatting and HTTP dispatch with skipped notifications on unchanged results and successful dispatch on new items.
   - `test_telegram_webhook_commands`: Conversational intent parsing and authentication checks.
   - `test_workspace_skills`: Workspace skill discovery from `.agents/skills/`.
   - `test_frontend_brand_github_link`: GitHub repository link in brand header and date replacement.
@@ -235,6 +245,8 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
   - `test_frontend_compact_task_card_layout`: Verifies inline header actions, omission of description/last run/total results badge, and retention of expand toggle.
   - `test_frontend_omits_location_pill`: Verifies location pills are omitted from item results while preserving other key fields.
+  - `test_task_result_diffing_and_new_item_annotation`: Verifies baseline initial run, unchanged repeat run, and new item detection with `is_new: true`.
+  - `test_frontend_new_item_indication`: Verifies `item-badge-new`, `result-pill-new`, and `.result-item-card.is-new-item` rendering and styles.
   - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 

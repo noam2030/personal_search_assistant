@@ -250,6 +250,8 @@ function renderSingleItemText(item: any): string {
     return `<div class="result-item-card"><div class="result-item-title">${escapeHtml(String(item))}</div></div>`;
   }
 
+  const isNew = item.is_new === true;
+
   const titleKey = Object.keys(item).find((k) => /title|name|heading|event/i.test(k)) || Object.keys(item)[0];
   const title = titleKey ? String(item[titleKey]) : 'Extracted Item';
 
@@ -267,9 +269,13 @@ function renderSingleItemText(item: any): string {
     || Object.keys(item).find((k) => /(website|source_website)/i.test(k));
   const websiteInfo = extractWebsiteInfo(item, link);
 
-  const ignoredKeys = new Set([titleKey, linkKey, descKey, locationKey, siteKey].filter(Boolean));
+  const ignoredKeys = new Set([titleKey, linkKey, descKey, locationKey, siteKey, 'is_new'].filter(Boolean));
 
   const metaPills: string[] = [];
+
+  if (isNew) {
+    metaPills.push('<span class="result-pill result-pill-new">✨ NEW</span>');
+  }
 
   if (websiteInfo) {
     const websiteHtml = websiteInfo.url
@@ -285,8 +291,10 @@ function renderSingleItemText(item: any): string {
   });
 
   return `
-    <div class="result-item-card">
-      <div class="result-item-title">${escapeHtml(title)}</div>
+    <div class="result-item-card ${isNew ? 'is-new-item' : ''}">
+      <div class="result-item-title">
+        ${isNew ? '<span class="item-badge-new">NEW</span> ' : ''}${escapeHtml(title)}
+      </div>
       ${metaPills.length > 0 ? `<div class="result-pills-row">${metaPills.join('')}</div>` : ''}
       ${description ? `<div class="result-item-desc" title="${escapeHtml(description)}">${escapeHtml(description)}</div>` : ''}
       ${link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" class="result-link-btn">View Details ↗</a>` : ''}
