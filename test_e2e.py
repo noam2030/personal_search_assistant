@@ -251,41 +251,12 @@ def test_workspace_skills():
     print("[E2E Test] Workspace Skills Loader tests passed!\n")
 
 
-def test_frontend_current_date():
+def test_frontend_brand_github_link():
     """
-    Verifies that the current date element, styling, and script logic are present in frontend files.
+    Verifies that the GitHub repository link is placed in header-brand instead of the date,
+    and the date elements are removed.
     """
-    print("[E2E Test] Testing Frontend Current Date Display...")
-    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
-    html_path = os.path.join(frontend_dir, "index.html")
-    css_path = os.path.join(frontend_dir, "src", "styles.css")
-    ts_path = os.path.join(frontend_dir, "src", "main.ts")
-
-    with open(html_path, "r", encoding="utf-8") as f:
-        html_content = f.read()
-    assert 'id="currentDate"' in html_content
-    assert 'id="currentDateText"' in html_content
-    assert 'header-brand' in html_content
-
-    with open(css_path, "r", encoding="utf-8") as f:
-        css_content = f.read()
-    assert '.header-brand' in css_content
-    assert '.header-date' in css_content
-
-    with open(ts_path, "r", encoding="utf-8") as f:
-        ts_content = f.read()
-    assert 'currentDateText' in ts_content
-    assert 'formatCurrentDate' in ts_content
-    assert 'updateCurrentDate' in ts_content
-
-    print("[E2E Test] Frontend Current Date Display tests passed!\n")
-
-
-def test_frontend_repo_link():
-    """
-    Verifies that the GitHub repository link, styling, and accessibility attributes are present in frontend files.
-    """
-    print("[E2E Test] Testing Frontend Repository Link...")
+    print("[E2E Test] Testing Frontend Brand GitHub Link...")
     frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
     html_path = os.path.join(frontend_dir, "index.html")
     css_path = os.path.join(frontend_dir, "src", "styles.css")
@@ -293,19 +264,48 @@ def test_frontend_repo_link():
     with open(html_path, "r", encoding="utf-8") as f:
         html_content = f.read()
     assert 'id="githubRepoLink"' in html_content
-    assert 'https://github.com/noam2030/personal_search_assistant' in html_content
-    assert 'target="_blank"' in html_content
-    assert 'rel="noopener noreferrer"' in html_content
-    assert 'btn-github' in html_content
-    assert 'app-footer' in html_content
+    assert 'class="brand-github-link"' in html_content
+    assert 'header-brand' in html_content
+    # Confirm date elements were replaced
+    assert 'id="currentDate"' not in html_content
+    assert 'id="currentDateText"' not in html_content
 
     with open(css_path, "r", encoding="utf-8") as f:
         css_content = f.read()
-    assert '.btn-github' in css_content
+    assert '.header-brand' in css_content
+    assert '.brand-github-link' in css_content
     assert '.github-icon' in css_content
-    assert '.app-footer' in css_content
 
-    print("[E2E Test] Frontend Repository Link tests passed!\n")
+    print("[E2E Test] Frontend Brand GitHub Link tests passed!\n")
+
+
+def test_frontend_repo_link():
+    """
+    Verifies that the GitHub repository link is located in the brand header,
+    has proper security attributes, and is removed from header actions and footer.
+    """
+    print("[E2E Test] Testing Frontend Repository Link Placement...")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    html_path = os.path.join(frontend_dir, "index.html")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    assert 'id="githubRepoLink"' in html_content
+    assert 'https://github.com/noam2030/personal_search_assistant' in html_content
+    assert 'target="_blank"' in html_content
+    assert 'rel="noopener noreferrer"' in html_content
+    assert 'brand-github-link' in html_content
+
+    # Assert removed from footer
+    footer_pos = html_content.find('<footer')
+    assert 'githubRepoLink' not in html_content[footer_pos:], "GitHub link must be removed from footer"
+
+    # Assert removed from header-actions
+    actions_pos = html_content.find('class="header-actions"')
+    card_pos = html_content.find('class="card full-width-card"')
+    assert 'githubRepoLink' not in html_content[actions_pos:card_pos], "GitHub button must be removed from header-actions"
+
+    print("[E2E Test] Frontend Repository Link Placement tests passed!\n")
 
 
 def test_frontend_horizontal_card_grid():
@@ -401,16 +401,38 @@ def test_frontend_user_selector_layout():
     print("[E2E Test] Frontend User Selector Layout tests passed!\n")
 
 
+def test_frontend_api_base_url_resolution():
+    """
+    Verifies that frontend/src/api.ts configures dynamic API base URL resolution
+    routing Vercel preview/staging to Cloud Run Staging and falling back cleanly.
+    """
+    print("[E2E Test] Testing Frontend API Base URL Resolution...")
+    api_path = os.path.join(os.path.dirname(__file__), "frontend", "src", "api.ts")
+    assert os.path.exists(api_path), "api.ts must exist"
+
+    with open(api_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "resolveApiBaseUrl" in content, "resolveApiBaseUrl must be defined"
+    assert "personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app" in content, "Must include staging Cloud Run API URL"
+    assert "personal-search-assistant-api-6dekvxzgaq-uc.a.run.app" in content, "Must include production Cloud Run API URL"
+    assert "vercel.app" in content, "Must detect vercel.app hostnames"
+    assert "http://localhost:8000" in content, "Must fallback to localhost"
+
+    print("[E2E Test] Frontend API Base URL Resolution tests passed!\n")
+
+
 if __name__ == "__main__":
     test_db_operations()
     test_fastapi_rest_endpoints()
     test_telegram_notifier()
     test_telegram_webhook_commands()
     test_workspace_skills()
-    test_frontend_current_date()
+    test_frontend_brand_github_link()
     test_frontend_repo_link()
     test_frontend_horizontal_card_grid()
     test_pr_ci_staging_workflow()
     test_frontend_user_selector_layout()
+    test_frontend_api_base_url_resolution()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")

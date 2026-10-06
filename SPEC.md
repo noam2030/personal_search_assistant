@@ -15,10 +15,10 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
 
 ## 3. User Experience
 - **Header Layout**:
-  - **Left**: Application title (`AI Personal Search Assistant`) and dynamic current date with calendar badge (`📅 Tuesday, October 6, 2026`).
+  - **Left**: Application title (`AI Personal Search Assistant`) and GitHub repository link (`GitHub Repository ↗`) placed below the title in `.header-brand`.
   - **Top Right (2-Tier Layout)**:
     - **Top Line (above actions)**: User selector row (`👤 User: [noam]`) right-aligned at the top of the screen.
-    - **Bottom Line (below user selector)**: Primary action buttons (`GitHub`, `+ New Task`, `Refresh`, `Run All`) right-aligned.
+    - **Bottom Line (below user selector)**: Primary action buttons (`+ New Task`, `Refresh`, `Run All`) right-aligned.
 - **Task Cards**:
   - Displays task name, status badge (`SUCCESS`, `FAILED`, `RUNNING`, `Pending`), task description, last run timestamp, and action buttons (`Run Task`, `✏️ Edit`, `Delete`).
 - **Extraction Results Presentation**:
@@ -28,7 +28,7 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
 - **Modal Dialog**:
   - Modal dialog overlay for creating and editing tasks with keyboard accessibility (`ESC` key support and outside-click dismiss).
 - **Footer**:
-  - App footer with Octocat icon and hyperlink to the GitHub repository.
+  - Clean application footer (`AI Personal Search Assistant`).
 
 ## 4. Architecture
 The system follows a modular client-server architecture with an AI agent layer and dual-persistence storage:
@@ -143,16 +143,22 @@ personal_search_assistant/
 - **Notifier (`backend/notifier.py`)**: Formats extraction results into clean Markdown Telegram messages with hyperlinks and sends them via Telegram Bot API.
 
 ## 7. Frontend
-- **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, task card list, and create/edit modal.
+- **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, task card list, and create/edit modal.
 - **Header Layout**:
-  - `.header-brand`: Title and live formatted date.
+  - `.header-brand`: Title and brand GitHub repository link (`.brand-github-link`).
   - `.header-right`: Flex column right-aligned container.
   - `.user-selector-row`: Top line with user ID input (`userIdInput`).
-  - `.header-actions`: Bottom line with GitHub link, New Task button, Refresh button, and Run All button.
+  - `.header-actions`: Bottom line with New Task button, Refresh button, and Run All button.
 - **Results Card Grid (`frontend/src/styles.css`, `frontend/src/main.ts`)**:
   - Renders up to 4 items horizontally in `.result-cards-grid` with dynamic `--grid-columns: 1..4`.
   - Extra items (> 4) rendered inside `.extra-results-container.hidden` and toggled via `.expand-results-btn`.
   - Responsive breakpoints: 4 columns on desktop (>900px), 2 columns on tablets (641px–900px), and 1 column on mobile (≤640px).
+- **Dynamic API Base URL Resolution (`frontend/src/api.ts`)**:
+  - Automatically resolves backend target via `resolveApiBaseUrl()`:
+  - If `VITE_API_URL` is set, uses that URL.
+  - If hosted on Vercel preview/staging (`*.vercel.app` containing `git-`, `preview`, or `staging`), routes to Cloud Run Staging (`https://personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app`).
+  - If hosted on Vercel production, routes to Cloud Run Production (`https://personal-search-assistant-api-6dekvxzgaq-uc.a.run.app`).
+  - Falls back to `http://localhost:8000` for local development.
 
 ## 8. Data Model
 ### Task Entity Schema
@@ -204,7 +210,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 - **`TELEGRAM_CHAT_ID`**: Authorized Telegram chat identifier for receiving automated updates.
 - **`K_SERVICE`**: Environment variable set automatically by Cloud Run; when present, enables Firestore over SQLite.
 - **`GCP_SA_KEY`**: GitHub Actions secret containing service account JSON credentials for Google Cloud deployments.
-- **`VITE_API_URL`**: Frontend environment variable specifying backend API base URL (defaults to `/api` proxy).
+- **`VITE_API_URL`**: Frontend environment variable optionally overriding backend API base URL (defaults dynamically to Cloud Run Staging on Vercel preview/staging, Cloud Run Production on Vercel production, or `http://localhost:8000` for local dev).
 
 ## 11. Testing
 - **End-to-End Test Suite (`test_e2e.py`)**:
@@ -213,11 +219,12 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_telegram_notifier`: Message formatting and HTTP dispatch with mocked credentials.
   - `test_telegram_webhook_commands`: Conversational intent parsing and authentication checks.
   - `test_workspace_skills`: Workspace skill discovery from `.agents/skills/`.
-  - `test_frontend_current_date`: Current date DOM element, script logic, and styling.
-  - `test_frontend_repo_link`: GitHub repository links in header and footer.
+  - `test_frontend_brand_github_link`: GitHub repository link in brand header and date replacement.
+  - `test_frontend_repo_link`: GitHub link placement in brand header and removal from actions and footer.
   - `test_frontend_horizontal_card_grid`: Up to 4 horizontal cards, expand toggle, and CSS grid rules.
   - `test_pr_ci_staging_workflow`: GitHub Actions PR testing and staging deployment workflow validation.
   - `test_frontend_user_selector_layout`: 2-tier header right alignment with user selector row on top line.
+  - `test_frontend_api_base_url_resolution`: Verifies dynamic API base URL resolution to Staging, Production, and Local dev.
   - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 
