@@ -22,21 +22,22 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
         lines.append("No new items were discovered.")
         return "\n".join(lines)
 
+    task_sections_added = 0
+
     for task in results:
         name = task.get("name", "Task")
         status = task.get("last_status", "UNKNOWN")
         icon = "✅" if status == "SUCCESS" else "❌"
 
-        lines.append(f"\n{icon} *{name}* (ID: `{task.get('id')}`)")
-
         if status == "FAILED":
+            lines.append(f"\n{icon} *{name}* (ID: `{task.get('id')}`)")
             err = task.get("last_error") or "Unknown error"
             lines.append(f"└ Error: `{err}`")
+            task_sections_added += 1
             continue
 
         raw_result = task.get("last_result")
         if not raw_result:
-            lines.append("└ _No results recorded_")
             continue
 
         try:
@@ -51,14 +52,16 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
                         items = parsed[key]
                         break
 
-            # Filter to new items if annotated; otherwise use all items
+            # Filter strictly to new items
             new_items = [i for i in items if isinstance(i, dict) and i.get("is_new") is True]
-            display_items = new_items if new_items else items
+            if not new_items:
+                continue
 
-            lines.append(f"└ Found *{len(display_items)} new item(s)*:")
+            lines.append(f"\n{icon} *{name}* (ID: `{task.get('id')}`)")
+            lines.append(f"└ Found *{len(new_items)} new item(s)*:")
 
             # Show top 5 items
-            for idx, item in enumerate(display_items[:5], 1):
+            for idx, item in enumerate(new_items[:5], 1):
                 if isinstance(item, dict):
                     title_key = next(
                         (k for k in item.keys() if any(w in k.lower() for w in ["title", "name", "heading"])),
@@ -71,7 +74,7 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
                     )
                     link = str(item[link_key]) if link_key and item.get(link_key) else None
 
-                    badge = "🆕 " if item.get("is_new") is True else "• "
+                    badge = "🆕 "
                     if link:
                         lines.append(f"   {badge}[{title}]({link})")
                     else:
@@ -79,11 +82,16 @@ def format_telegram_message(user_id: str, results: List[Dict[str, Any]]) -> str:
                 else:
                     lines.append(f"   • {item}")
 
-            if len(display_items) > 5:
-                lines.append(f"   _...and {len(display_items) - 5} more items_")
+            if len(new_items) > 5:
+                lines.append(f"   _...and {len(new_items) - 5} more items_")
+
+            task_sections_added += 1
 
         except Exception:
-            lines.append("└ _Result format could not be parsed_")
+            continue
+
+    if task_sections_added == 0:
+        lines.append("No new items were discovered.")
 
     return "\n".join(lines)
 
@@ -131,4 +139,7 @@ def send_telegram_notification(user_id: str, results: List[Dict[str, Any]]) -> b
         return False
 
     message_text = format_telegram_message(user_id, tasks_with_new)
+    if "No new items were discovered." in message_text:
+        print(f"[Notifier] No new items discovered for user '{user_id}'. Skipping Telegram notification.")
+        return False
     return send_telegram_message(text=message_text)

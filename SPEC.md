@@ -8,8 +8,8 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
 ## 2. Requirements
 - **Natural Language Search Task Management**: Users can create, update, list, run, and delete persistent search tasks defined in plain English.
 - **AI Search Grounding & Extraction**: The agent executes live Google Search queries via Gemini (`gemini-3.6-flash`), extracts structured results (title, URL, description, location, source domain), and auto-names tasks.
-- **Item-Level Diffing & New Item Indication**: Extracted results are compared at the item level against previous runs using canonical fingerprints (`title::link`). Initial runs establish a baseline without notifications. On subsequent runs, newly discovered items are tagged with `is_new: true` and displayed with prominent emerald `NEW` badges in the UI.
-- **Selective Telegram Notifications**: Telegram notifications are dispatched **only** when at least one new item is discovered. Scheduled or manual runs where all items remain unchanged (or initial baseline runs) skip notifications entirely.
+- **Item-Level Diffing & New Item Indication**: Extracted results are compared at the item level against previous run results. Tasks with an initial status (prior to `SUCCESS`, such as `None` or `Pending`) establish a baseline run without notifications. On subsequent runs (where previous `last_status == 'SUCCESS'`), newly discovered items are tagged with `is_new: true` using robust URL normalization, title normalization, and token overlap matching, displayed with prominent emerald `NEW` badges in the UI.
+- **Selective Telegram Notifications**: Telegram notifications are dispatched **only** when at least one new item is discovered, and formatted messages display strictly the newly discovered items (`is_new: true`). Scheduled or manual runs where all items remain unchanged (or initial baseline runs) skip notifications entirely.
 - **Telegram Conversational Interface**: An interactive Telegram Bot powered by Gemini parses conversational user messages (create task, list tasks, run task, batch run, delete task).
 - **Multi-Client Execution**: Supports user-triggered ad-hoc execution via Web UI, automated batch runs via daily Cloud Scheduler cron, and manual runs via CLI.
 - **Dual-Database Persistence**: Automatically uses SQLite (`assistant.db`) locally and Google Cloud Firestore in production when running on Google Cloud Run.
@@ -142,12 +142,12 @@ personal_search_assistant/
 
 ## 6. Backend
 - **REST API Router (`backend/api.py`)**: Exposes endpoints for task CRUD, single/batch task execution, health check, and Telegram webhook.
-- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, applies diffing via `backend.differ`, and attaches execution metadata (`has_new_items`, `new_items_count`).
-- **Differ Engine (`backend/differ.py`)**: Dedicated module providing canonical item fingerprinting (`extract_item_fingerprint`), result array parsing (`parse_result_items`), baseline and subsequent diffing (`diff_and_annotate_results`), and change detection (`has_task_new_items`).
+- **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, passes task execution history (`last_status`, `last_result`) to `backend.differ`, and attaches execution metadata (`has_new_items`, `new_items_count`).
+- **Differ Engine (`backend/differ.py`)**: Dedicated module providing canonical item fingerprinting (`extract_item_fingerprint`), result array parsing (`parse_result_items`), robust item equality verification (`is_same_item`, `normalize_url`, `normalize_title`), baseline detection via initial task status (suppressing notifications when `last_status != 'SUCCESS'`), and change detection (`has_task_new_items`).
 - **Search Extraction Agent (`backend/agent/extract_content_agent.py`)**: Calls Gemini with Search Grounding to extract structured items and generate concise task titles. Injects workspace skills from `.agents/skills/`. Includes IPv4 socket fallback for macOS networking.
 - **Intent Classifier (`backend/agent/classify_agent.py`)**: Parses Telegram messages into actions (`CREATE_TASK`, `LIST_TASKS`, `RUN_TASK`, `RUN_ALL_TASKS`, `DELETE_TASK`, `REPLY`).
 - **Persistence (`backend/db.py`, `backend/cloud_db.py`)**: Transparent switching between SQLite and Cloud Firestore based on the `K_SERVICE` environment variable.
-- **Notifier (`backend/notifier.py`)**: Evaluates `has_task_new_items` across executed tasks via `backend.differ`. If all tasks have unchanged items (or first baseline run), completely skips sending Telegram messages. When new items are found, formats clean Markdown Telegram messages highlighting only new items with `🆕` tags and sends them via Telegram Bot API.
+- **Notifier (`backend/notifier.py`)**: Evaluates `has_task_new_items` across executed tasks via `backend.differ`. If all tasks have unchanged items (or first baseline run), completely skips sending Telegram messages. When new items are found, formats clean Markdown Telegram messages displaying strictly the newly discovered items (`is_new: true`) with `🆕` tags and sends them via Telegram Bot API.
 
 ## 7. Frontend
 - **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, task card list, and create/edit modal.
@@ -244,8 +244,9 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
   - `test_frontend_compact_task_card_layout`: Verifies inline header actions, omission of description/last run/total results badge, and retention of expand toggle.
   - `test_frontend_omits_location_pill`: Verifies location pills are omitted from item results while preserving other key fields.
-  - `test_task_result_diffing_and_new_item_annotation`: Verifies baseline initial run, unchanged repeat run, and new item detection with `is_new: true`.
+  - `test_task_result_diffing_and_new_item_annotation`: Verifies baseline initial run, unchanged repeat run with URL/title variations, and new item detection with `is_new: true`.
   - `test_frontend_new_item_indication`: Verifies `item-badge-new`, `result-pill-new`, and `.result-item-card.is-new-item` rendering and styles.
+  - `test_task_execution_lifecycle_initial_status_and_diff`: Verifies the full controller execution lifecycle through `run_task_by_id`, confirming that initial status (`None`/`Pending`) suppresses notifications and repeat runs with LLM search variations remain unchanged.
   - `test_e2e_live_api`: Live Gemini search grounding test (runs when `GEMINI_API_KEY` is present).
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 

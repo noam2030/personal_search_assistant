@@ -189,6 +189,26 @@ def test_telegram_notifier():
     assert "Tel Aviv Java Jobs" in formatted
     assert "Senior Java Developer" in formatted
 
+    # Test format_telegram_message with unchanged results
+    formatted_unchanged = format_telegram_message("noam", mock_results_unchanged)
+    assert "No new items were discovered." in formatted_unchanged
+
+    # Test mixed items: only is_new == True item should be formatted
+    mock_results_mixed = [{
+        "id": 1,
+        "name": "Tel Aviv Java Jobs",
+        "last_status": "SUCCESS",
+        "last_result": json.dumps({"items": [
+            {"title": "Senior Java Developer", "link": "https://example.com/job", "is_new": False},
+            {"title": "Lead Kotlin Engineer", "link": "https://example.com/kotlin", "is_new": True}
+        ], "has_new_items": True}),
+        "last_error": None,
+    }]
+    formatted_mixed = format_telegram_message("noam", mock_results_mixed)
+    assert "Lead Kotlin Engineer" in formatted_mixed
+    assert "Senior Java Developer" not in formatted_mixed
+    assert "Found *1 new item(s)*:" in formatted_mixed
+
     # 1. Test skipped notification when tokens absent
     with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": ""}):
         assert send_telegram_notification("noam", mock_results_new) is False
@@ -544,15 +564,20 @@ def test_frontend_omits_location_pill():
 def test_task_result_diffing_and_new_item_annotation():
     """
     Verifies that diff_and_annotate_results properly:
-    1. Treats initial run as baseline (is_new = False, has_new_items = False)
+    1. Treats initial run as baseline based on prev_status (prev_status is None or != 'SUCCESS')
     2. Treats repeat run with identical items as unchanged (is_new = False, has_new_items = False)
-    3. Detects added items on subsequent run (is_new = True, has_new_items = True, new_items_count > 0)
+    3. Handles URL formatting variations (root vs deep link) as unchanged
+    4. Handles minor title punctuation/wording variations as unchanged
+    5. Detects truly new items on subsequent run (is_new = True, has_new_items = True, new_items_count > 0)
     """
     from backend.differ import (
         diff_and_annotate_results,
         extract_item_fingerprint,
         has_task_new_items,
         parse_result_items,
+        is_same_item,
+        normalize_url,
+        normalize_title,
     )
     from backend.controller import diff_and_annotate_results as controller_diff
     assert controller_diff is diff_and_annotate_results, "Controller must re-export diff_and_annotate_results"
@@ -560,51 +585,88 @@ def test_task_result_diffing_and_new_item_annotation():
     initial_result = json.dumps({
         "task_title": "Tel Aviv AI Jobs",
         "items": [
-            {"title": "AI Engineer", "link": "https://example.com/ai"},
-            {"title": "ML Researcher", "link": "https://example.com/ml"}
+            {"title": "Software Engineer II, Google Notification Platform", "link": "https://careers.google.com"},
+            {"title": "Generative AI Israel", "link": "https://www.meetup.com/generative-ai-israel/"},
+            {"title": "מיטת קומותיים יד שניה למסירה בחינם בלוד", "link": "https://www.agora.co.il"}
         ]
     })
 
-    # Step 1: First run (baseline)
+    # Step 1: First run with initial status (None / Pending) -> baseline, no new items
     annotated_1, has_new_1, count_1 = diff_and_annotate_results(
         prev_raw_result=None,
         new_raw_result=initial_result,
+        prev_status=None,
     )
-    assert has_new_1 is False, "First run must not flag new items"
+    assert has_new_1 is False, "Initial run with prev_status=None must not flag new items"
     assert count_1 == 0
     parsed_1 = json.loads(annotated_1)
     assert all(i["is_new"] is False for i in parsed_1["items"])
 
-    # Step 2: Repeat run with identical items
+    # Step 1b: Task has prev_raw_result but prev_status was 'Pending' or None (not SUCCESS) -> still baseline
+    annotated_1b, has_new_1b, count_1b = diff_and_annotate_results(
+        prev_raw_result=initial_result,
+        new_raw_result=initial_result,
+        prev_status="Pending",
+    )
+    assert has_new_1b is False, "Run with prev_status='Pending' must be treated as initial baseline"
+    assert count_1b == 0
+
+    # Step 2: Repeat run where prev_status == 'SUCCESS' and items are identical
     annotated_2, has_new_2, count_2 = diff_and_annotate_results(
         prev_raw_result=annotated_1,
         new_raw_result=initial_result,
+        prev_status="SUCCESS",
     )
     assert has_new_2 is False, "Repeat run with identical items must have has_new_items = False"
     assert count_2 == 0
     parsed_2 = json.loads(annotated_2)
     assert all(i["is_new"] is False for i in parsed_2["items"])
 
-    # Step 3: Subsequent run with a newly added item
-    updated_run_result = json.dumps({
+    # Step 3: Subsequent run where URLs or titles vary slightly (LLM search variation)
+    # Item 1: Same title, but deep careers URL instead of root
+    # Item 2: Added 'Meetup' to title, stripped www and trailing slash from URL
+    # Item 3: Omitted 'יד שניה' from Agora title, link has deal ID query
+    varied_result = json.dumps({
         "task_title": "Tel Aviv AI Jobs",
         "items": [
-            {"title": "AI Engineer", "link": "https://example.com/ai"},
-            {"title": "ML Researcher", "link": "https://example.com/ml"},
-            {"title": "Lead Agent Developer", "link": "https://example.com/agent"}
+            {"title": "Software Engineer II - Google Notification Platform", "link": "https://www.google.com/about/careers/applications/jobs/results/"},
+            {"title": "Generative AI Israel Meetup", "link": "https://meetup.com/generative-ai-israel?utm_source=chat"},
+            {"title": "מיטת קומותיים למסירה בחינם בלוד", "link": "https://www.agora.co.il/deal_details.asp?id=3214592"}
         ]
     })
     annotated_3, has_new_3, count_3 = diff_and_annotate_results(
         prev_raw_result=annotated_2,
-        new_raw_result=updated_run_result,
+        new_raw_result=varied_result,
+        prev_status="SUCCESS",
     )
-    assert has_new_3 is True, "Subsequent run with new item must have has_new_items = True"
-    assert count_3 == 1
+    assert has_new_3 is False, "Varied URL/title formats for the same listings must NOT be flagged as new"
+    assert count_3 == 0
     parsed_3 = json.loads(annotated_3)
-    items_3 = parsed_3["items"]
-    assert items_3[0]["is_new"] is False
-    assert items_3[1]["is_new"] is False
-    assert items_3[2]["is_new"] is True, "Newly added item must be marked is_new = True"
+    assert all(i["is_new"] is False for i in parsed_3["items"])
+
+    # Step 4: Subsequent run with a genuinely new item added
+    updated_run_result = json.dumps({
+        "task_title": "Tel Aviv AI Jobs",
+        "items": [
+            {"title": "Software Engineer II, Google Notification Platform", "link": "https://careers.google.com"},
+            {"title": "Generative AI Israel", "link": "https://www.meetup.com/generative-ai-israel/"},
+            {"title": "מיטת קומותיים יד שניה למסירה בחינם בלוד", "link": "https://www.agora.co.il"},
+            {"title": "Lead Agentic Systems Architect", "link": "https://example.com/lead-agent"}
+        ]
+    })
+    annotated_4, has_new_4, count_4 = diff_and_annotate_results(
+        prev_raw_result=annotated_3,
+        new_raw_result=updated_run_result,
+        prev_status="SUCCESS",
+    )
+    assert has_new_4 is True, "Subsequent run with truly new item must have has_new_items = True"
+    assert count_4 == 1
+    parsed_4 = json.loads(annotated_4)
+    items_4 = parsed_4["items"]
+    assert items_4[0]["is_new"] is False
+    assert items_4[1]["is_new"] is False
+    assert items_4[2]["is_new"] is False
+    assert items_4[3]["is_new"] is True, "Newly added item must be marked is_new = True"
 
     print("[E2E Test] Task Result Diffing & New Item Annotation tests passed!\n")
 
@@ -636,7 +698,80 @@ def test_frontend_new_item_indication():
     assert ".result-pill-new" in css_content
     assert ".result-item-card.is-new-item" in css_content
 
-    print("[E2E Test] Frontend New Item Indication tests passed!\n")
+def test_task_execution_lifecycle_initial_status_and_diff():
+    """
+    Tests full controller lifecycle through run_task_by_id:
+    - Initial run on task with initial status (None): establishes baseline, has_new_items is False
+    - Repeat run with variations: unchanged, has_new_items is False
+    - Subsequent run with new item: detects addition, has_new_items is True
+    """
+    print("[E2E Test] Testing Task Execution Lifecycle Initial Status & Diffing...")
+    from backend import db
+    from backend.controller import run_task_by_id
+
+    user_id = "test_user_lifecycle"
+    # Clean previous
+    for t in db.list_tasks(user_id):
+        db.delete_task(t["id"], user_id)
+
+    task = db.add_task(user_id=user_id, name="Job Search", task_description="find tech jobs")
+    assert task["last_status"] is None, "Initial task status must be None"
+
+    mock_run_1 = json.dumps({
+        "task_title": "Tel Aviv Tech Jobs",
+        "items": [
+            {"title": "Senior Backend Developer", "link": "https://example.com/job1"},
+            {"title": "Full Stack Engineer", "link": "https://example.com/job2"}
+        ]
+    })
+
+    # Run 1: First run with mock_run_1 -> must be baseline, no new items
+    with patch("backend.controller.run_task", return_value=mock_run_1):
+        res1 = run_task_by_id(task["id"])
+        assert res1["last_status"] == "SUCCESS"
+        assert res1["has_new_items"] is False
+        assert res1["new_items_count"] == 0
+        parsed1 = json.loads(res1["last_result"])
+        assert all(i["is_new"] is False for i in parsed1["items"])
+
+    # Run 2: Repeat run with minor URL and title variations -> must be unchanged
+    mock_run_2 = json.dumps({
+        "task_title": "Tel Aviv Tech Jobs",
+        "items": [
+            {"title": "Senior Backend Developer - Tel Aviv", "link": "https://example.com/job1?ref=feed"},
+            {"title": "Full Stack Engineer", "link": "https://example.com/job2/"}
+        ]
+    })
+    with patch("backend.controller.run_task", return_value=mock_run_2):
+        res2 = run_task_by_id(task["id"])
+        assert res2["last_status"] == "SUCCESS"
+        assert res2["has_new_items"] is False
+        assert res2["new_items_count"] == 0
+        parsed2 = json.loads(res2["last_result"])
+        assert all(i["is_new"] is False for i in parsed2["items"])
+
+    # Run 3: Subsequent run with a new item added -> has_new_items is True
+    mock_run_3 = json.dumps({
+        "task_title": "Tel Aviv Tech Jobs",
+        "items": [
+            {"title": "Senior Backend Developer", "link": "https://example.com/job1"},
+            {"title": "Full Stack Engineer", "link": "https://example.com/job2"},
+            {"title": "DevOps Engineer", "link": "https://example.com/job3"}
+        ]
+    })
+    with patch("backend.controller.run_task", return_value=mock_run_3):
+        res3 = run_task_by_id(task["id"])
+        assert res3["last_status"] == "SUCCESS"
+        assert res3["has_new_items"] is True
+        assert res3["new_items_count"] == 1
+        parsed3 = json.loads(res3["last_result"])
+        assert parsed3["items"][0]["is_new"] is False
+        assert parsed3["items"][1]["is_new"] is False
+        assert parsed3["items"][2]["is_new"] is True
+
+    # Cleanup
+    db.delete_task(task["id"], user_id)
+    print("[E2E Test] Task Execution Lifecycle Initial Status & Diffing tests passed!\n")
 
 
 if __name__ == "__main__":
@@ -656,5 +791,6 @@ if __name__ == "__main__":
     test_frontend_omits_location_pill()
     test_task_result_diffing_and_new_item_annotation()
     test_frontend_new_item_indication()
+    test_task_execution_lifecycle_initial_status_and_diff()
     test_e2e_live_api()
     print("All E2E tests completed successfully!")
