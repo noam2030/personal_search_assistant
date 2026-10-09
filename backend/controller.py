@@ -53,6 +53,8 @@ def run_task_by_id(task_id: int) -> dict:
     new_items_count = 0
     try:
         res_text = run_task(task_description=task_desc)
+        if not res_text or not res_text.strip():
+            raise RuntimeError("Extraction agent returned empty search results.")
 
         # Diff against baseline/previous result and annotate is_new
         annotated_json, has_new_items, new_items_count = diff_and_annotate_results(

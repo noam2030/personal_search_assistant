@@ -68,6 +68,6 @@ jobs:
             --source ./backend \
             --port 8080 \
             --region us-central1 \
-            --project plenary-line-507307-g7 \
+            --project ai-learning-499409 \
             --allow-unauthenticated \
             --update-env-vars GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
