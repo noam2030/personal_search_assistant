@@ -1,0 +1,5 @@
+1. i can not get my tasks. my website doesnt work.
+2. why you are looking at other project? we are in the personal search asistant project.
+3. i can see the the ui console that personal-search-assistant      plenary-line-507307-g7 is set with billing enabled
+4. i want you to deploy the personal_search_assistant project to the cloud ai-learing project, which has billing enabled.
+5. confirm

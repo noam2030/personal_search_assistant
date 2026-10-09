@@ -169,8 +169,8 @@ personal_search_assistant/
 - **Dynamic API Base URL Resolution (`frontend/src/api.ts`)**:
   - Automatically resolves backend target via `resolveApiBaseUrl()`:
   - If `VITE_API_URL` is set, uses that URL.
-  - If hosted on Vercel preview/staging (`*.vercel.app` containing `git-`, `preview`, or `staging`), routes to Cloud Run Staging (`https://personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app`).
-  - If hosted on Vercel production, routes to Cloud Run Production (`https://personal-search-assistant-api-6dekvxzgaq-uc.a.run.app`).
+  - If hosted on Vercel preview/staging (`*.vercel.app` containing `git-`, `preview`, or `staging`), routes to Cloud Run Staging (`https://personal-search-assistant-api-staging-289332143182.us-central1.run.app`).
+  - If hosted on Vercel production, routes to Cloud Run Production (`https://personal-search-assistant-api-289332143182.us-central1.run.app`).
   - Falls back to `http://localhost:8000` for local development.
 
 ## 8. Data Model
@@ -251,7 +251,8 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 - **Frontend Build Verification**: `npm run build` (`tsc && vite build`) verifying TypeScript types and asset bundling.
 
 ## 12. Deployment
-- **Cloud Run (Production)**: Serverless backend container deployed automatically via `.github/workflows/deploy-backend.yml` on push to `main` (`personal-search-assistant-api`).
-- **Cloud Run (Staging)**: Dedicated staging backend deployed automatically via `.github/workflows/pr-test-and-staging.yml` on passing pull requests (`personal-search-assistant-api-staging`).
+- **Target GCP Project**: `ai-learning-499409` (Project Number `289332143182`, Region `us-central1`).
+- **Cloud Run (Production)**: Serverless backend container deployed automatically via `.github/workflows/deploy-backend.yml` on push to `main` (`personal-search-assistant-api` at `https://personal-search-assistant-api-289332143182.us-central1.run.app`).
+- **Cloud Run (Staging)**: Dedicated staging backend deployed automatically via `.github/workflows/pr-test-and-staging.yml` on passing pull requests (`personal-search-assistant-api-staging` at `https://personal-search-assistant-api-staging-289332143182.us-central1.run.app`).
 - **Cloud Scheduler**: Daily cron job deployed via `deploy_cloud_scheduler.sh` triggering `/api/tasks/run-all`.
 - **Frontend Hosting**: Deployable to Vercel with automatic pull request preview deployments.

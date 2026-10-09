@@ -23,10 +23,10 @@ export function resolveApiBaseUrl(): string {
         hostname.includes('preview') ||
         hostname.includes('-preview-')
       ) {
-        return 'https://personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app';
+        return 'https://personal-search-assistant-api-staging-289332143182.us-central1.run.app';
       }
       // Vercel Production deployment
-      return 'https://personal-search-assistant-api-6dekvxzgaq-uc.a.run.app';
+      return 'https://personal-search-assistant-api-289332143182.us-central1.run.app';
     }
   }
   return 'http://localhost:8000';

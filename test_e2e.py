@@ -450,8 +450,8 @@ def test_frontend_api_base_url_resolution():
         content = f.read()
 
     assert "resolveApiBaseUrl" in content, "resolveApiBaseUrl must be defined"
-    assert "personal-search-assistant-api-staging-6dekvxzgaq-uc.a.run.app" in content, "Must include staging Cloud Run API URL"
-    assert "personal-search-assistant-api-6dekvxzgaq-uc.a.run.app" in content, "Must include production Cloud Run API URL"
+    assert "personal-search-assistant-api-staging-289332143182.us-central1.run.app" in content, "Must include staging Cloud Run API URL"
+    assert "personal-search-assistant-api-289332143182.us-central1.run.app" in content, "Must include production Cloud Run API URL"
     assert "vercel.app" in content, "Must detect vercel.app hostnames"
     assert "http://localhost:8000" in content, "Must fallback to localhost"
 
