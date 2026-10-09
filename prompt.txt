@@ -6,3 +6,4 @@
 6. merge
 7. in production, the vercel url for backend api is wrong. update it to link to the new backend api in the ai-learing cloud project
 8. confirm
+9. merge
