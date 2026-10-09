@@ -255,4 +255,4 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 - **Cloud Run (Production)**: Serverless backend container deployed automatically via `.github/workflows/deploy-backend.yml` on push to `main` (`personal-search-assistant-api` at `https://personal-search-assistant-api-289332143182.us-central1.run.app`).
 - **Cloud Run (Staging)**: Dedicated staging backend deployed automatically via `.github/workflows/pr-test-and-staging.yml` on passing pull requests (`personal-search-assistant-api-staging` at `https://personal-search-assistant-api-staging-289332143182.us-central1.run.app`).
 - **Cloud Scheduler**: Daily cron job deployed via `deploy_cloud_scheduler.sh` triggering `/api/tasks/run-all`.
-- **Frontend Hosting**: Deployable to Vercel with automatic pull request preview deployments.
+- **Frontend Hosting**: Deployable to Vercel (Project: `personal-search-assistant-ui`) with automatic pull request preview deployments. In Vercel production project settings, `VITE_API_URL` is configured to `https://personal-search-assistant-api-289332143182.us-central1.run.app` to link directly to the production Cloud Run backend in `ai-learning-499409`.

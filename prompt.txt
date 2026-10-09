@@ -4,3 +4,5 @@
 4. i want you to deploy the personal_search_assistant project to the cloud ai-learing project, which has billing enabled.
 5. confirm
 6. merge
+7. in production, the vercel url for backend api is wrong. update it to link to the new backend api in the ai-learing cloud project
+8. confirm
