@@ -242,7 +242,7 @@ Both SQLite (`tasks` table) and Firestore (`personal-search-assistant/{user_id}/
 - **`K_SERVICE`**: Environment variable set automatically by Cloud Run; when present, enables Firestore over SQLite.
 - **`GCP_SA_KEY`**: GitHub Actions secret containing service account JSON credentials for Google Cloud deployments.
 - **`VITE_API_URL`**: Frontend environment variable optionally overriding backend API base URL (defaults dynamically to Cloud Run Staging on Vercel preview/staging, Cloud Run Production on Vercel production, or `http://localhost:8000` for local dev).
-- **`VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_APP_ID`**: Optional frontend Firebase configuration overrides (defaults to the `ai-learning-499409` Firebase Web App configuration).
+- **`VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_STORAGE_BUCKET` / `VITE_FIREBASE_MESSAGING_SENDER_ID` / `VITE_FIREBASE_APP_ID`**: Frontend Firebase Web App configuration environment variables (loaded strictly from environment variables in Vercel and `.env`, with no hardcoded credentials in source code).
 
 ## 11. Testing
 - **End-to-End Test Suite (`test_e2e.py`)**:

@@ -501,6 +501,8 @@ def test_frontend_user_selector_layout():
     assert "GoogleAuthProvider" in auth_content
     assert "signInWithPopup" in auth_content
     assert "signInWithGoogle" in auth_content
+    assert "VITE_FIREBASE_API_KEY" in auth_content
+    assert "AIzaSy" not in auth_content, "Firebase API key must not be hardcoded in source code"
 
     print("[E2E Test] Frontend Guest Welcome & Google Sign-In Layout tests passed!\n")
 

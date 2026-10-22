@@ -1,6 +1,7 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   getAuth,
+  Auth,
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
@@ -9,17 +10,22 @@ import {
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyB1b70BteUvUs3kYPrMD1aP-SxpqFbEz7M',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'ai-learning-499409.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'ai-learning-499409',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'ai-learning-499409.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '289332143182',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:289332143182:web:6931887c04f865c96c0f1f',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+let app: FirebaseApp | null = null;
+export let auth: Auth | null = null;
 const googleProvider = new GoogleAuthProvider();
+
+if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+}
 
 export const GUEST_USER_ID = 'guest';
 
@@ -51,15 +57,24 @@ export function resolveAuthUserState(user: User | null): AuthUserState {
 }
 
 export async function signInWithGoogle(): Promise<AuthUserState> {
+  if (!auth) {
+    throw new Error('Firebase Auth is not configured. Missing VITE_FIREBASE_API_KEY environment variable.');
+  }
   const credential = await signInWithPopup(auth, googleProvider);
   return resolveAuthUserState(credential.user);
 }
 
 export async function signOutUser(): Promise<void> {
-  await signOut(auth);
+  if (auth) {
+    await signOut(auth);
+  }
 }
 
 export function subscribeToAuthChanges(callback: (state: AuthUserState) => void): () => void {
+  if (!auth) {
+    callback(resolveAuthUserState(null));
+    return () => {};
+  }
   return onAuthStateChanged(auth, (user) => {
     callback(resolveAuthUserState(user));
   });
