@@ -7,3 +7,8 @@
 7. in production, the vercel url for backend api is wrong. update it to link to the new backend api in the ai-learing cloud project
 8. confirm
 9. merge
+10. i want to make data per user. add login option. welcome guest first. click on guest will perform sign in with google. all tasks will be saved under user. the root folder in firestore will be the name of the app (personal-search-assistant)
+11. confirm
+12. why do you expose api key in firebaseConfig
+13. confirm
+14. merge

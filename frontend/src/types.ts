@@ -18,6 +18,7 @@ export interface CreateTaskPayload {
 }
 
 export interface UpdateTaskPayload {
+  user_id?: string;
   task_description?: string;
   name?: string;
 }

@@ -7,20 +7,26 @@ The system leverages **Google Gemini AI with live Google Search Grounding** to s
 
 ## 2. Requirements
 - **Natural Language Search Task Management**: Users can create, update, list, run, and delete persistent search tasks defined in plain English.
+- **Per-User Data Isolation & Google Sign-In Authentication**:
+  - The Web UI welcomes unauthenticated visitors as **`Welcome, Guest`** (using `user_id = "guest"`).
+  - Clicking on **`Welcome, Guest`** triggers **Sign in with Google** via Firebase Authentication (`GoogleAuthProvider` / `signInWithPopup`).
+  - Once authenticated, the UI displays **`Welcome, <User Name>`** (along with a Sign Out button to return to Guest mode), and all tasks are created, listed, executed, and deleted under that authenticated user (`user_id = user.email || user.uid`).
 - **AI Search Grounding & Extraction**: The agent executes live Google Search queries via Gemini (`gemini-3.6-flash`), extracts structured results (title, URL, description, location, source domain), and auto-names tasks.
 - **Item-Level Diffing & New Item Indication**: Extracted results are compared at the item level against previous run results. Tasks with an initial status (prior to `SUCCESS`, such as `None` or `Pending`) establish a baseline run without notifications. On subsequent runs (where previous `last_status == 'SUCCESS'`), newly discovered items are tagged with `is_new: true` using robust URL normalization, title normalization, and token overlap matching, displayed with prominent emerald `NEW` badges in the UI.
 - **Selective Telegram Notifications**: Telegram notifications are dispatched **only** when at least one new item is discovered, and formatted messages display strictly the newly discovered items (`is_new: true`). Scheduled or manual runs where all items remain unchanged (or initial baseline runs) skip notifications entirely.
 - **Telegram Conversational Interface**: An interactive Telegram Bot powered by Gemini parses conversational user messages (create task, list tasks, run task, batch run, delete task).
 - **Multi-Client Execution**: Supports user-triggered ad-hoc execution via Web UI, automated batch runs via daily Cloud Scheduler cron, and manual runs via CLI.
-- **Dual-Database Persistence**: Automatically uses SQLite (`assistant.db`) locally and Google Cloud Firestore in production when running on Google Cloud Run.
-- **Responsive Web Interface**: Displays tasks, execution status, live date, top-right user switcher, and extraction results in a horizontal cards layout with expandable items.
+- **Dual-Database Persistence & Hierarchical Firestore Root**: Automatically uses SQLite (`assistant.db`) locally and Google Cloud Firestore in production when running on Google Cloud Run. In Firestore, the root collection is `personal-search-assistant`, and all tasks are stored under the respective user document (`personal-search-assistant/{user_id}/tasks/{task_id}`).
+- **Responsive Web Interface**: Displays tasks, execution status, top-right Google Sign-In / Guest welcome bar, and extraction results in a horizontal cards layout with expandable items.
 
 ## 3. User Experience
 - **Header Layout**:
   - **Left**: Application title (`AI Personal Search Assistant`), GitHub repository link (`GitHub Repository ↗`), and connected backend API Base URL indicator (`API: <url> ↗`) placed below the GitHub link in `.header-brand`.
   - **Top Right (2-Tier Layout)**:
-    - **Top Line (above actions)**: User selector row (`👤 User: [noam]`) right-aligned at the top of the screen.
-    - **Bottom Line (below user selector)**: Primary action buttons (`+ New Task`, `Refresh`, `Run All`) right-aligned.
+    - **Top Line (above actions)**: User authentication bar (`.user-selector-row`) right-aligned at the top of the screen:
+      - Defaults to a clickable **`👤 Welcome, Guest`** button (`#guestLoginBtn`). Clicking on it performs **Sign in with Google**.
+      - When signed in with Google, displays **`👤 Welcome, <User Display Name / Email>`** (`#userWelcomeText`) alongside a **`Sign Out`** button (`#signOutBtn`).
+    - **Bottom Line (below user selector)**: Primary action buttons (`New Task`, `Refresh`, `Run All`) right-aligned.
 - **Task Cards**:
   - Displays task name on the left and status badge (`SUCCESS`, `FAILED`, `RUNNING`, `Pending`) along with action buttons (`Run Task`, `✏️ Edit`, `Delete`) inline beside the badge in `.task-status-actions`.
   - Task description and last run timestamp metadata are omitted from the card display for a clean, compact view (task description remains editable via the Edit modal).
@@ -117,11 +123,12 @@ personal_search_assistant/
 │
 ├── frontend/                       # Web Single-Page Application (SPA)
 │   ├── index.html                  # HTML entrypoint with 2-tier header & modal
-│   ├── package.json                # Frontend dependencies (Vite, TypeScript)
+│   ├── package.json                # Frontend dependencies (Vite, TypeScript, Firebase)
 │   ├── tsconfig.json               # TypeScript configuration
 │   ├── vite.config.ts              # Vite build configuration
 │   └── src/
 │       ├── main.ts                 # UI controller, event listeners, card rendering
+│       ├── auth.ts                 # Firebase Auth Google Sign-In & Guest session state
 │       ├── api.ts                  # REST API client
 │       ├── types.ts                # TypeScript interfaces (Task, Payloads)
 │       └── styles.css              # Custom styling, 2-tier header & card grid
@@ -135,26 +142,28 @@ personal_search_assistant/
 ## 5. Technology Stack
 - **Backend**: Python 3.12, FastAPI, Uvicorn, Google GenAI SDK (`google-genai`), HTTPX, BeautifulSoup4, pytest.
 - **AI Model**: Google Gemini (`gemini-3.6-flash`) with dynamic Google Search Grounding (`tools: [{"google_search": {}}]`).
-- **Frontend**: TypeScript, Vite 5, Vanilla DOM / Modern CSS (CSS Grid, Flexbox, Container Queries).
-- **Storage**: SQLite 3 (local development), Google Cloud Firestore (Cloud Run serverless production).
-- **Cloud Infrastructure**: Google Cloud Run, Google Cloud Scheduler, Vercel (Frontend hosting & PR previews).
+- **Frontend**: TypeScript, Vite 5, Firebase JS SDK (`firebase/app`, `firebase/auth`), Vanilla DOM / Modern CSS (CSS Grid, Flexbox, Container Queries).
+- **Storage**: SQLite 3 (local development), Google Cloud Firestore (Cloud Run serverless production, rooted under `personal-search-assistant`).
+- **Cloud Infrastructure**: Google Cloud Run, Google Cloud Scheduler, Firebase Authentication, Vercel (Frontend hosting & PR previews).
 - **CI/CD**: GitHub Actions (`pr-test-and-staging.yml`, `deploy-backend.yml`).
 
 ## 6. Backend
-- **REST API Router (`backend/api.py`)**: Exposes endpoints for task CRUD, single/batch task execution, health check, and Telegram webhook.
+- **REST API Router (`backend/api.py`)**: Exposes endpoints for task CRUD, single/batch task execution, health check, and Telegram webhook, accepting `user_id` to isolate task operations per user.
 - **Workflow Controller (`backend/controller.py`)**: Orchestrates task execution, dispatches extraction to Gemini, updates database state, auto-names tasks, passes task execution history (`last_status`, `last_result`) to `backend.differ`, and attaches execution metadata (`has_new_items`, `new_items_count`).
 - **Differ Engine (`backend/differ.py`)**: Dedicated module providing canonical item fingerprinting (`extract_item_fingerprint`), result array parsing (`parse_result_items`), robust item equality verification (`is_same_item`, `normalize_url`, `normalize_title`), baseline detection via initial task status (suppressing notifications when `last_status != 'SUCCESS'`), and change detection (`has_task_new_items`).
 - **Search Extraction Agent (`backend/agent/extract_content_agent.py`)**: Calls Gemini with Search Grounding to extract structured items and generate concise task titles. Injects workspace skills from `.agents/skills/`. Includes IPv4 socket fallback for macOS networking.
 - **Intent Classifier (`backend/agent/classify_agent.py`)**: Parses Telegram messages into actions (`CREATE_TASK`, `LIST_TASKS`, `RUN_TASK`, `RUN_ALL_TASKS`, `DELETE_TASK`, `REPLY`).
-- **Persistence (`backend/db.py`, `backend/cloud_db.py`)**: Transparent switching between SQLite and Cloud Firestore based on the `K_SERVICE` environment variable.
+- **Persistence (`backend/db.py`, `backend/cloud_db.py`)**: Transparent switching between SQLite and Cloud Firestore based on the `K_SERVICE` environment variable. In Firestore, all user data is rooted under the collection `personal-search-assistant` (`ROOT_COLLECTION = "personal-search-assistant"`), with each user's tasks stored in `personal-search-assistant/{user_id}/tasks/{task_id}`.
 - **Notifier (`backend/notifier.py`)**: Evaluates `has_task_new_items` across executed tasks via `backend.differ`. If all tasks have unchanged items (or first baseline run), completely skips sending Telegram messages. When new items are found, formats clean Markdown Telegram messages displaying strictly the newly discovered items (`is_new: true`) with `🆕` tags and sends them via Telegram Bot API.
 
 ## 7. Frontend
-- **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, task card list, and create/edit modal.
-- **Header Layout**:
+- **SPA Entrypoint (`frontend/index.html`)**: Defines structure including the 2-tier right-aligned header, brand GitHub link, Guest / Google Sign-In bar, task card list, and create/edit modal.
+- **Header Layout & Authentication (`frontend/src/auth.ts`, `frontend/src/main.ts`)**:
   - `.header-brand`: Title, brand GitHub repository link (`.brand-github-link`), and connected API URL badge (`.brand-api-url`).
   - `.header-right`: Flex column right-aligned container.
-  - `.user-selector-row`: Top line with user ID input (`userIdInput`).
+  - `.user-selector-row`: Top line containing the user authentication controls:
+    - Unauthenticated state: Renders `#guestLoginBtn` displaying `👤 Welcome, Guest`. Clicking `#guestLoginBtn` invokes `signInWithGoogle()` using Firebase Authentication (`GoogleAuthProvider` + `signInWithPopup`).
+    - Authenticated state: Renders `#userAuthBadge` with `#userWelcomeText` (`Welcome, <DisplayName or Email>`) and `#signOutBtn` (`Sign Out`), switching active `user_id` to the authenticated Google account (`user.email || user.uid`) and reloading the user's tasks.
   - `.header-actions`: Bottom line with New Task button, Refresh button, and Run All button.
 - **Results Card Grid (`frontend/src/styles.css`, `frontend/src/main.ts`)**:
   - Renders up to 4 items horizontally in `.result-cards-grid` with dynamic `--grid-columns: 1..4`.
@@ -174,13 +183,19 @@ personal_search_assistant/
   - Falls back to `http://localhost:8000` for local development.
 
 ## 8. Data Model
+### Firestore Hierarchical Path
+In Google Cloud Firestore, the root collection is named after the application (`personal-search-assistant`), and all tasks are stored under their owning user document:
+- **Root Collection**: `personal-search-assistant`
+- **User Document**: `personal-search-assistant/{user_id}`
+- **User Tasks Subcollection**: `personal-search-assistant/{user_id}/tasks/{task_id}`
+
 ### Task Entity Schema
-Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this schema:
+Both SQLite (`tasks` table) and Firestore (`personal-search-assistant/{user_id}/tasks` subcollection) adhere to this schema:
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `id` | `INTEGER` | Unique task ID (Autoincrement in SQLite, epoch ms in Firestore) |
-| `user_id` | `TEXT` | User identifier (e.g. `noam`) |
+| `user_id` | `TEXT` | User identifier (`guest` by default, or authenticated user email/UID) |
 | `name` | `TEXT` | Short display title (auto-generated by Gemini or user-defined) |
 | `task_description` | `TEXT` | Natural language search prompt / instructions |
 | `last_run_at` | `TEXT` | Timestamp of last execution (`YYYY-MM-DD HH:MM:SS`) |
@@ -213,11 +228,11 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/health` | None | Service health check |
 | `GET` | `/api/tasks` | `user_id: string` (query) | Returns all tasks for the given user |
-| `POST` | `/api/tasks` | `{ "user_id": string, "task_description": string }` | Creates a new task |
-| `PUT` | `/api/tasks/{id}` | `{ "name"?: string, "task_description"?: string }` | Updates task name or prompt |
-| `POST` | `/api/tasks/{id}/run` | None (path `id`) | Triggers immediate execution for a task (sends Telegram notification only if new items found) |
-| `POST` | `/api/tasks/run-all` | `user_id: string` (query) | Batch executes all tasks & dispatches Telegram summary only if new items found |
-| `DELETE` | `/api/tasks/{id}` | `user_id?: string` (query) | Deletes a task |
+| `POST` | `/api/tasks` | `{ "user_id": string, "task_description": string }` | Creates a new task under `user_id` |
+| `PUT` | `/api/tasks/{id}` | `{ "user_id"?: string, "name"?: string, "task_description"?: string }` | Updates task name or prompt |
+| `POST` | `/api/tasks/{id}/run` | `user_id?: string` (query) | Triggers immediate execution for a task (sends Telegram notification only if new items found) |
+| `POST` | `/api/tasks/run-all` | `user_id: string` (query) | Batch executes all tasks for `user_id` & dispatches Telegram summary only if new items found |
+| `DELETE` | `/api/tasks/{id}` | `user_id?: string` (query) | Deletes a task for `user_id` |
 | `POST` | `/api/telegram/webhook` | Telegram Update JSON | Ingests Telegram Bot messages & dispatches AI agent actions |
 
 ## 10. Configuration
@@ -227,11 +242,13 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
 - **`K_SERVICE`**: Environment variable set automatically by Cloud Run; when present, enables Firestore over SQLite.
 - **`GCP_SA_KEY`**: GitHub Actions secret containing service account JSON credentials for Google Cloud deployments.
 - **`VITE_API_URL`**: Frontend environment variable optionally overriding backend API base URL (defaults dynamically to Cloud Run Staging on Vercel preview/staging, Cloud Run Production on Vercel production, or `http://localhost:8000` for local dev).
+- **`VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_STORAGE_BUCKET` / `VITE_FIREBASE_MESSAGING_SENDER_ID` / `VITE_FIREBASE_APP_ID`**: Frontend Firebase Web App configuration environment variables (loaded strictly from environment variables in Vercel and `.env`, with no hardcoded credentials in source code).
 
 ## 11. Testing
 - **End-to-End Test Suite (`test_e2e.py`)**:
-  - `test_db_operations`: SQLite CRUD operations and state tracking.
-  - `test_fastapi_rest_endpoints`: Health check, task CRUD, and execution endpoints.
+  - `test_db_operations`: SQLite CRUD operations and per-user state tracking.
+  - `test_firestore_per_user_hierarchy`: Verifies that `backend/cloud_db.py` uses `personal-search-assistant` as the root collection and stores/queries tasks under `{user_id}/tasks`.
+  - `test_fastapi_rest_endpoints`: Health check, per-user task CRUD, and execution endpoints.
   - `test_telegram_notifier`: Message formatting and HTTP dispatch with skipped notifications on unchanged results and successful dispatch on new items.
   - `test_telegram_webhook_commands`: Conversational intent parsing and authentication checks.
   - `test_workspace_skills`: Workspace skill discovery from `.agents/skills/`.
@@ -239,7 +256,7 @@ Both SQLite (`tasks` table) and Firestore (`tasks` collection) adhere to this sc
   - `test_frontend_repo_link`: GitHub link placement in brand header and removal from actions and footer.
   - `test_frontend_horizontal_card_grid`: Up to 4 horizontal cards, expand toggle, and CSS grid rules.
   - `test_pr_ci_staging_workflow`: GitHub Actions PR testing and staging deployment workflow validation.
-  - `test_frontend_user_selector_layout`: 2-tier header right alignment with user selector row on top line.
+  - `test_frontend_user_selector_layout`: 2-tier header right alignment with `Welcome, Guest` clickable Google Sign-In control on the top line.
   - `test_frontend_api_base_url_resolution`: Verifies dynamic API base URL resolution to Staging, Production, and Local dev.
   - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
   - `test_frontend_compact_task_card_layout`: Verifies inline header actions, omission of description/last run/total results badge, and retention of expand toggle.

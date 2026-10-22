@@ -33,17 +33,18 @@ from backend.differ import (
 )
 
 
-def run_task_by_id(task_id: int) -> dict:
+def run_task_by_id(task_id: int, user_id: str | None = None) -> dict:
     """
     Fetches a task by ID, executes natural language search/extraction,
     diffs against baseline/previous results to tag new items (is_new),
     automatically updates task.name from Gemini's generated task_title,
     updates task results, and returns the updated task dict.
     """
-    task = db.get_task(task_id)
+    task = db.get_task(task_id, user_id=user_id)
     if not task:
         raise ValueError(f"Task with ID {task_id} not found.")
 
+    task_user_id = task.get("user_id") or user_id
     task_desc = task.get("task_description", "")
     prev_raw_result = task.get("last_result")
     prev_status = task.get("last_status")
@@ -72,6 +73,7 @@ def run_task_by_id(task_id: int) -> dict:
                     task_id=task["id"],
                     name=generated_title.strip(),
                     task_description=task_desc,
+                    user_id=task_user_id,
                 )
         except Exception:
             pass
@@ -81,6 +83,7 @@ def run_task_by_id(task_id: int) -> dict:
             status="SUCCESS",
             result_json=annotated_json,
             error=None,
+            user_id=task_user_id,
         )
         print(f"✓ Task [{task['id']}] completed successfully (new items: {new_items_count}).\n")
     except Exception as e:
@@ -90,10 +93,11 @@ def run_task_by_id(task_id: int) -> dict:
             status="FAILED",
             result_json=None,
             error=error_msg,
+            user_id=task_user_id,
         )
         print(f"✗ Task [{task['id']}] failed: {error_msg}\n")
 
-    updated = db.get_task(task_id)
+    updated = db.get_task(task_id, user_id=task_user_id)
     if updated:
         updated["has_new_items"] = has_new_items
         updated["new_items_count"] = new_items_count
@@ -115,7 +119,7 @@ def run_user_tasks(user_id: str) -> list[dict]:
 
     for idx, task in enumerate(tasks, 1):
         print(f"[Task {idx}/{len(tasks)}]")
-        updated_task = run_task_by_id(task_id=task["id"])
+        updated_task = run_task_by_id(task_id=task["id"], user_id=user_id)
         if updated_task:
             results.append(updated_task)
 

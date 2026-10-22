@@ -15,6 +15,7 @@ class CreateTaskRequest(BaseModel):
 
 
 class UpdateTaskRequest(BaseModel):
+    user_id: Optional[str] = None
     task_description: Optional[str] = None
     name: Optional[str] = None
 
@@ -57,9 +58,10 @@ def create_task(req: CreateTaskRequest):
 
 
 @router.put("/tasks/{task_id}", response_model=TaskResponse)
-def update_task(task_id: int, req: UpdateTaskRequest):
+def update_task(task_id: int, req: UpdateTaskRequest, user_id: Optional[str] = Query(None)):
     """Updates an existing task's description or name."""
-    existing = db.get_task(task_id)
+    effective_user_id = (req.user_id or user_id or "").strip() or None
+    existing = db.get_task(task_id, user_id=effective_user_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found.")
 
@@ -67,7 +69,7 @@ def update_task(task_id: int, req: UpdateTaskRequest):
     new_desc = req.task_description.strip() if req.task_description and req.task_description.strip() else existing["task_description"]
 
     updated_task = db.update_task_details(
-        task_id=task_id, name=new_name, task_description=new_desc
+        task_id=task_id, name=new_name, task_description=new_desc, user_id=effective_user_id
     )
     if not updated_task:
         raise HTTPException(status_code=500, detail="Failed to update task details.")
@@ -76,14 +78,15 @@ def update_task(task_id: int, req: UpdateTaskRequest):
 
 
 @router.post("/tasks/{task_id}/run", response_model=TaskResponse)
-def execute_task(task_id: int):
+def execute_task(task_id: int, user_id: Optional[str] = Query(None)):
     """Triggers live execution of a task by ID and dispatches Telegram notification if new items are found."""
-    task = db.get_task(task_id)
+    effective_user_id = user_id.strip() if user_id and user_id.strip() else None
+    task = db.get_task(task_id, user_id=effective_user_id)
     if not task:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found.")
 
     try:
-        updated_task = run_task_by_id(task_id=task_id)
+        updated_task = run_task_by_id(task_id=task_id, user_id=effective_user_id)
         send_telegram_notification(user_id=task["user_id"], results=[updated_task])
         return updated_task
     except Exception as e:
