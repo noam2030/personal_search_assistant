@@ -11,3 +11,4 @@
 11. confirm
 12. why do you expose api key in firebaseConfig
 13. confirm
+14. merge
