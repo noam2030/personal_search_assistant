@@ -116,6 +116,40 @@ h1 {
   gap: 0.45rem;
 }
 
+.guest-login-btn {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+}
+
+.guest-login-btn:hover {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #93c5fd;
+}
+
+.guest-login-btn.authenticated-user-badge {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+  color: #a7f3d0;
+  cursor: default;
+}
+
+.sign-out-btn {
+  padding: 0.32rem 0.65rem;
+  font-size: 0.78rem;
+  border-radius: 16px;
+}
+
 .user-label {
   font-size: 0.85rem;
   color: var(--text-muted);

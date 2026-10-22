@@ -55,8 +55,9 @@ export async function createTask(payload: CreateTaskPayload): Promise<Task> {
   return response.json();
 }
 
-export async function updateTaskById(taskId: number, payload: UpdateTaskPayload): Promise<Task> {
-  const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
+export async function updateTaskById(taskId: number, payload: UpdateTaskPayload, userId?: string): Promise<Task> {
+  const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+  const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}${query}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -68,8 +69,9 @@ export async function updateTaskById(taskId: number, payload: UpdateTaskPayload)
   return response.json();
 }
 
-export async function runTaskById(taskId: number): Promise<Task> {
-  const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/run`, {
+export async function runTaskById(taskId: number, userId?: string): Promise<Task> {
+  const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+  const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/run${query}`, {
     method: 'POST',
   });
   if (!response.ok) {

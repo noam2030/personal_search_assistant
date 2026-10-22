@@ -88,15 +88,18 @@ def list_tasks(user_id: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-def get_task(task_id: int) -> Optional[Dict[str, Any]]:
-    """Fetches a single task by ID."""
+def get_task(task_id: int, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Fetches a single task by ID (and optional user_id)."""
     if is_cloud_available():
-        return cloud_db.get_task_cloud(task_id=task_id)
+        return cloud_db.get_task_cloud(task_id=task_id, user_id=user_id)
 
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        if user_id:
+            cursor.execute("SELECT * FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
+        else:
+            cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -105,27 +108,38 @@ def update_task_details(
     task_id: int,
     name: str,
     task_description: str,
+    user_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Updates task name and task_description in database."""
     if is_cloud_available():
         return cloud_db.update_task_details_cloud(
-            task_id=task_id, name=name, task_description=task_description
+            task_id=task_id, name=name, task_description=task_description, user_id=user_id
         )
 
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE tasks
-            SET name = ?, task_description = ?
-            WHERE id = ?
-            """,
-            (name, task_description, task_id),
-        )
+        if user_id:
+            cursor.execute(
+                """
+                UPDATE tasks
+                SET name = ?, task_description = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (name, task_description, task_id, user_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE tasks
+                SET name = ?, task_description = ?
+                WHERE id = ?
+                """,
+                (name, task_description, task_id),
+            )
         conn.commit()
         if cursor.rowcount > 0:
-            return get_task(task_id)
+            return get_task(task_id, user_id=user_id)
         return None
 
 
@@ -134,6 +148,7 @@ def update_task_result(
     status: str,
     result_json: str | None = None,
     error: str | None = None,
+    user_id: Optional[str] = None,
 ):
     """Updates the task row with the latest execution status and result."""
     if is_cloud_available():
@@ -142,20 +157,31 @@ def update_task_result(
             status=status,
             result_json=result_json,
             error=error,
+            user_id=user_id,
         )
         return
 
     init_db()
     last_run_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        conn.execute(
-            """
-            UPDATE tasks
-            SET last_run_at = ?, last_status = ?, last_result = ?, last_error = ?
-            WHERE id = ?
-            """,
-            (last_run_at, status, result_json, error, task_id),
-        )
+        if user_id:
+            conn.execute(
+                """
+                UPDATE tasks
+                SET last_run_at = ?, last_status = ?, last_result = ?, last_error = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (last_run_at, status, result_json, error, task_id, user_id),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE tasks
+                SET last_run_at = ?, last_status = ?, last_result = ?, last_error = ?
+                WHERE id = ?
+                """,
+                (last_run_at, status, result_json, error, task_id),
+            )
         conn.commit()
 
 

@@ -71,6 +71,53 @@ def test_db_operations():
     print("[E2E Test] Database CRUD tests passed!\n")
 
 
+def test_firestore_per_user_hierarchy():
+    """
+    Verifies that backend/cloud_db.py uses 'personal-search-assistant' as the root Firestore collection
+    and stores all tasks under the user document: personal-search-assistant/{user_id}/tasks/{task_id}.
+    """
+    print("[E2E Test] Testing Firestore Per-User Hierarchy (personal-search-assistant/{user_id}/tasks)...")
+    from backend import cloud_db
+
+    assert cloud_db.ROOT_COLLECTION == "personal-search-assistant"
+    assert cloud_db.TASKS_SUBCOLLECTION == "tasks"
+
+    mock_db = MagicMock()
+    mock_root_col = MagicMock()
+    mock_user_doc = MagicMock()
+    mock_tasks_col = MagicMock()
+    mock_task_doc = MagicMock()
+
+    mock_db.collection.return_value = mock_root_col
+    mock_root_col.document.return_value = mock_user_doc
+    mock_user_doc.collection.return_value = mock_tasks_col
+    mock_tasks_col.document.return_value = mock_task_doc
+
+    with patch("backend.cloud_db.get_firestore_client", return_value=mock_db):
+        created = cloud_db.add_task_cloud(
+            user_id="alice@example.com",
+            name="AI Conferences",
+            task_description="find AI conferences in Europe",
+        )
+        mock_db.collection.assert_called_with("personal-search-assistant")
+        mock_root_col.document.assert_called_with("alice@example.com")
+        mock_user_doc.collection.assert_called_with("tasks")
+        mock_task_doc.set.assert_called_once()
+        assert created["user_id"] == "alice@example.com"
+        assert created["name"] == "AI Conferences"
+
+        # List tasks for user
+        mock_snap = MagicMock()
+        mock_snap.to_dict.return_value = created
+        mock_tasks_col.stream.return_value = [mock_snap]
+
+        listed = cloud_db.list_tasks_cloud("alice@example.com")
+        assert len(listed) == 1
+        assert listed[0]["user_id"] == "alice@example.com"
+
+    print("[E2E Test] Firestore Per-User Hierarchy tests passed!\n")
+
+
 def test_fastapi_rest_endpoints():
     """
     Tests FastAPI REST API endpoints: /api/health, /api/tasks (GET/POST/PUT/DELETE).
@@ -405,20 +452,26 @@ def test_pr_ci_staging_workflow():
 
 def test_frontend_user_selector_layout():
     """
-    Verifies that the user selector is positioned in a top line above the actions
-    on the top right of the screen.
+    Verifies that the user authentication bar is positioned in a top line above the actions
+    on the top right of the screen, welcomes Guest first, and clicking on Guest performs
+    Sign in with Google.
     """
-    print("[E2E Test] Testing Frontend User Selector Layout...")
+    print("[E2E Test] Testing Frontend Guest Welcome & Google Sign-In Layout...")
     frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
     html_path = os.path.join(frontend_dir, "index.html")
     css_path = os.path.join(frontend_dir, "src", "styles.css")
+    ts_path = os.path.join(frontend_dir, "src", "main.ts")
+    auth_path = os.path.join(frontend_dir, "src", "auth.ts")
 
     with open(html_path, "r", encoding="utf-8") as f:
         html = f.read()
 
     assert 'class="header-right"' in html
     assert 'class="user-selector-row"' in html
-    assert 'id="userIdInput"' in html
+    assert 'id="guestLoginBtn"' in html
+    assert 'id="userWelcomeText"' in html
+    assert 'Welcome, Guest' in html
+    assert 'id="signOutBtn"' in html
     assert 'class="header-actions"' in html
 
     # Verify user-selector-row comes before header-actions inside header-right
@@ -431,10 +484,25 @@ def test_frontend_user_selector_layout():
 
     assert '.header-right' in css
     assert '.user-selector-row' in css
-    assert '.user-input' in css
+    assert '.guest-login-btn' in css
     assert 'align-items: flex-end;' in css
 
-    print("[E2E Test] Frontend User Selector Layout tests passed!\n")
+    with open(ts_path, "r", encoding="utf-8") as f:
+        ts_content = f.read()
+
+    assert "guestLoginBtn.addEventListener('click', handleGuestClick)" in ts_content
+    assert "signInWithGoogle" in ts_content
+    assert "Welcome, Guest" in ts_content
+
+    assert os.path.exists(auth_path), "auth.ts must exist"
+    with open(auth_path, "r", encoding="utf-8") as f:
+        auth_content = f.read()
+
+    assert "GoogleAuthProvider" in auth_content
+    assert "signInWithPopup" in auth_content
+    assert "signInWithGoogle" in auth_content
+
+    print("[E2E Test] Frontend Guest Welcome & Google Sign-In Layout tests passed!\n")
 
 
 def test_frontend_api_base_url_resolution():
@@ -776,6 +844,7 @@ def test_task_execution_lifecycle_initial_status_and_diff():
 
 if __name__ == "__main__":
     test_db_operations()
+    test_firestore_per_user_hierarchy()
     test_fastapi_rest_endpoints()
     test_telegram_notifier()
     test_telegram_webhook_commands()

@@ -26,10 +26,13 @@
       </div>
       <div class="header-right">
         <div class="user-selector-row">
-          <label for="userIdInput" class="user-label">
-            <span class="user-icon" aria-hidden="true">👤</span> User:
-          </label>
-          <input type="text" id="userIdInput" value="noam" class="user-input">
+          <button type="button" id="guestLoginBtn" class="guest-login-btn" title="Click to sign in with Google">
+            <span class="user-icon" aria-hidden="true">👤</span>
+            <span id="userWelcomeText">Welcome, Guest</span>
+          </button>
+          <button type="button" id="signOutBtn" class="btn-secondary sign-out-btn hidden" title="Sign out and return to Guest">
+            Sign Out
+          </button>
         </div>
         <div class="header-actions">
           <button id="openCreateTaskModalBtn" class="btn-primary-action">New Task</button>

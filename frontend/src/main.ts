@@ -1,10 +1,19 @@
 import { Task } from './types';
 import { fetchUserTasks, createTask, updateTaskById, runTaskById, deleteTaskById, runAllTasks, API_BASE_URL } from './api';
+import {
+  GUEST_USER_ID,
+  AuthUserState,
+  signInWithGoogle,
+  signOutUser,
+  subscribeToAuthChanges,
+} from './auth';
 
 // DOM Element References
 const apiBaseUrlLink = document.getElementById('apiBaseUrlLink') as HTMLAnchorElement | null;
 const apiBaseUrlText = document.getElementById('apiBaseUrlText') as HTMLSpanElement | null;
-const userIdInput = document.getElementById('userIdInput') as HTMLInputElement;
+const guestLoginBtn = document.getElementById('guestLoginBtn') as HTMLButtonElement;
+const userWelcomeText = document.getElementById('userWelcomeText') as HTMLSpanElement;
+const signOutBtn = document.getElementById('signOutBtn') as HTMLButtonElement;
 const refreshTasksBtn = document.getElementById('refreshTasksBtn') as HTMLButtonElement;
 const runAllTasksBtn = document.getElementById('runAllTasksBtn') as HTMLButtonElement;
 const openCreateTaskModalBtn = document.getElementById('openCreateTaskModalBtn') as HTMLButtonElement;
@@ -18,9 +27,63 @@ const createTaskForm = document.getElementById('createTaskForm') as HTMLFormElem
 const taskDescriptionInput = document.getElementById('taskDescription') as HTMLTextAreaElement;
 const taskListContainer = document.getElementById('taskList') as HTMLDivElement;
 
-// Running & Editing State
+// Current User & Running/Editing State
+let currentUserState: AuthUserState = {
+  userId: GUEST_USER_ID,
+  displayName: 'Guest',
+  email: null,
+  isGuest: true,
+};
 const runningTasks: Record<number, boolean> = {};
 let editingTaskId: number | null = null;
+
+function getCurrentUserId(): string {
+  return currentUserState.userId || GUEST_USER_ID;
+}
+
+function updateAuthHeaderUI(state: AuthUserState): void {
+  currentUserState = state;
+  if (state.isGuest) {
+    userWelcomeText.textContent = 'Welcome, Guest';
+    guestLoginBtn.title = 'Click to sign in with Google';
+    guestLoginBtn.classList.remove('authenticated-user-badge');
+    signOutBtn.classList.add('hidden');
+  } else {
+    userWelcomeText.textContent = `Welcome, ${state.displayName}`;
+    guestLoginBtn.title = state.email ? `Signed in as ${state.email}` : `Signed in as ${state.displayName}`;
+    guestLoginBtn.classList.add('authenticated-user-badge');
+    signOutBtn.classList.remove('hidden');
+  }
+}
+
+async function handleGuestClick(): Promise<void> {
+  if (!currentUserState.isGuest) {
+    return;
+  }
+  try {
+    const authState = await signInWithGoogle();
+    updateAuthHeaderUI(authState);
+    await loadTasks();
+  } catch (error) {
+    console.error('Google Sign-In error:', error);
+    alert(`Google Sign-In failed: ${(error as Error).message}`);
+  }
+}
+
+async function handleSignOutClick(): Promise<void> {
+  try {
+    await signOutUser();
+    updateAuthHeaderUI({
+      userId: GUEST_USER_ID,
+      displayName: 'Guest',
+      email: null,
+      isGuest: true,
+    });
+    await loadTasks();
+  } catch (error) {
+    alert(`Sign out failed: ${(error as Error).message}`);
+  }
+}
 
 function openModal(mode: 'create' | 'edit', task?: Task): void {
   if (mode === 'edit' && task) {
@@ -46,7 +109,7 @@ function closeModal(): void {
 }
 
 async function loadTasks(): Promise<void> {
-  const userId = userIdInput.value.trim() || 'noam';
+  const userId = getCurrentUserId();
   taskListContainer.innerHTML = '<p style="color: var(--text-muted);">Loading tasks...</p>';
 
   try {
@@ -307,11 +370,12 @@ function formatKey(key: string): string {
 }
 
 async function handleRunTask(taskId: number): Promise<void> {
+  const userId = getCurrentUserId();
   runningTasks[taskId] = true;
   await loadTasks();
 
   try {
-    await runTaskById(taskId);
+    await runTaskById(taskId, userId);
   } catch (error) {
     alert(`Task Execution Failed: ${(error as Error).message}`);
   } finally {
@@ -321,7 +385,7 @@ async function handleRunTask(taskId: number): Promise<void> {
 }
 
 async function handleDeleteTask(taskId: number): Promise<void> {
-  const userId = userIdInput.value.trim() || 'noam';
+  const userId = getCurrentUserId();
   if (!confirm('Are you sure you want to delete this task?')) return;
 
   try {
@@ -349,7 +413,7 @@ document.addEventListener('keydown', (e) => {
 
 createTaskForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const userId = userIdInput.value.trim() || 'noam';
+  const userId = getCurrentUserId();
   const task_description = taskDescriptionInput.value.trim();
 
   if (!task_description) return;
@@ -360,7 +424,7 @@ createTaskForm.addEventListener('submit', async (e) => {
   try {
     if (editingTaskId !== null) {
       // Editing existing task
-      await updateTaskById(editingTaskId, { task_description });
+      await updateTaskById(editingTaskId, { user_id: userId, task_description }, userId);
     } else {
       // Creating new task
       await createTask({ user_id: userId, task_description });
@@ -375,13 +439,14 @@ createTaskForm.addEventListener('submit', async (e) => {
 });
 
 refreshTasksBtn.addEventListener('click', () => loadTasks());
-userIdInput.addEventListener('change', () => loadTasks());
+guestLoginBtn.addEventListener('click', handleGuestClick);
+signOutBtn.addEventListener('click', handleSignOutClick);
 
 let isRunningAll = false;
 
 async function handleRunAllTasks(): Promise<void> {
   if (isRunningAll) return;
-  const userId = userIdInput.value.trim() || 'noam';
+  const userId = getCurrentUserId();
 
   isRunningAll = true;
   runAllTasksBtn.disabled = true;
@@ -414,6 +479,14 @@ function initApiBaseUrlDisplay(): void {
   }
 }
 
-// Initial Load
+// Initial Load & Auth Listener
 initApiBaseUrlDisplay();
+updateAuthHeaderUI(currentUserState);
 loadTasks();
+subscribeToAuthChanges((authState) => {
+  const prevUserId = currentUserState.userId;
+  updateAuthHeaderUI(authState);
+  if (authState.userId !== prevUserId) {
+    loadTasks();
+  }
+});
