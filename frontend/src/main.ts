@@ -36,6 +36,8 @@ let currentUserState: AuthUserState = {
 };
 const runningTasks: Record<number, boolean> = {};
 let editingTaskId: number | null = null;
+let latestLoadTasksRequestId = 0;
+let hasInitialAuthResolved = false;
 
 function getCurrentUserId(): string {
   return currentUserState.userId || GUEST_USER_ID;
@@ -110,12 +112,19 @@ function closeModal(): void {
 
 async function loadTasks(): Promise<void> {
   const userId = getCurrentUserId();
+  const requestId = ++latestLoadTasksRequestId;
   taskListContainer.innerHTML = '<p style="color: var(--text-muted);">Loading tasks...</p>';
 
   try {
     const tasks = await fetchUserTasks(userId);
+    if (requestId !== latestLoadTasksRequestId || userId !== getCurrentUserId()) {
+      return;
+    }
     renderTaskList(tasks);
   } catch (error) {
+    if (requestId !== latestLoadTasksRequestId || userId !== getCurrentUserId()) {
+      return;
+    }
     taskListContainer.innerHTML = `<p style="color: var(--danger);">Error loading tasks: ${(error as Error).message}</p>`;
   }
 }
@@ -482,11 +491,12 @@ function initApiBaseUrlDisplay(): void {
 // Initial Load & Auth Listener
 initApiBaseUrlDisplay();
 updateAuthHeaderUI(currentUserState);
-loadTasks();
 subscribeToAuthChanges((authState) => {
   const prevUserId = currentUserState.userId;
+  const isFirstResolution = !hasInitialAuthResolved;
+  hasInitialAuthResolved = true;
   updateAuthHeaderUI(authState);
-  if (authState.userId !== prevUserId) {
+  if (isFirstResolution || authState.userId !== prevUserId) {
     loadTasks();
   }
 });
