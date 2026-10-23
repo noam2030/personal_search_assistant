@@ -12,3 +12,9 @@
 12. why do you expose api key in firebaseConfig
 13. confirm
 14. merge
+15. i dont see the way to sign in... do not see data
+16. confirm
+17. Google Sign-In failed: Firebase Auth is not configured. Missing VITE_FIREBASE_API_KEY environment variable.
+18. confirm
+19. when i am browsing to the url of the ui, i see a loading, then a results - then the results are gone!!! only after refreshing the page i can see my tasks again!!!!!!!!...............
+20. בםמכןרצ

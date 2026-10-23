@@ -493,6 +493,10 @@ def test_frontend_user_selector_layout():
     assert "guestLoginBtn.addEventListener('click', handleGuestClick)" in ts_content
     assert "signInWithGoogle" in ts_content
     assert "Welcome, Guest" in ts_content
+    assert "latestLoadTasksRequestId" in ts_content
+    assert "hasInitialAuthResolved" in ts_content
+    assert "requestId !== latestLoadTasksRequestId" in ts_content
+    assert "isFirstResolution || authState.userId !== prevUserId" in ts_content
 
     assert os.path.exists(auth_path), "auth.ts must exist"
     with open(auth_path, "r", encoding="utf-8") as f:

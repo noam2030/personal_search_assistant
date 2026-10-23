@@ -164,6 +164,7 @@ personal_search_assistant/
   - `.user-selector-row`: Top line containing the user authentication controls:
     - Unauthenticated state: Renders `#guestLoginBtn` displaying `👤 Welcome, Guest`. Clicking `#guestLoginBtn` invokes `signInWithGoogle()` using Firebase Authentication (`GoogleAuthProvider` + `signInWithPopup`).
     - Authenticated state: Renders `#userAuthBadge` with `#userWelcomeText` (`Welcome, <DisplayName or Email>`) and `#signOutBtn` (`Sign Out`), switching active `user_id` to the authenticated Google account (`user.email || user.uid`) and reloading the user's tasks.
+    - Initial Load & Stale-Response Protection: Initial task loading is triggered inside `subscribeToAuthChanges` once Firebase Auth resolves the initial session state (rather than firing an unguarded `guest` fetch beforehand), and `loadTasks()` tracks a monotonically increasing `latestLoadTasksRequestId` (along with verifying `userId === getCurrentUserId()`) so stale in-flight responses never overwrite current user tasks.
   - `.header-actions`: Bottom line with New Task button, Refresh button, and Run All button.
 - **Results Card Grid (`frontend/src/styles.css`, `frontend/src/main.ts`)**:
   - Renders up to 4 items horizontally in `.result-cards-grid` with dynamic `--grid-columns: 1..4`.
@@ -256,7 +257,7 @@ Both SQLite (`tasks` table) and Firestore (`personal-search-assistant/{user_id}/
   - `test_frontend_repo_link`: GitHub link placement in brand header and removal from actions and footer.
   - `test_frontend_horizontal_card_grid`: Up to 4 horizontal cards, expand toggle, and CSS grid rules.
   - `test_pr_ci_staging_workflow`: GitHub Actions PR testing and staging deployment workflow validation.
-  - `test_frontend_user_selector_layout`: 2-tier header right alignment with `Welcome, Guest` clickable Google Sign-In control on the top line.
+  - `test_frontend_user_selector_layout`: 2-tier header right alignment with `Welcome, Guest` clickable Google Sign-In control on the top line, initial task load on auth state resolution, and stale-response protection in `loadTasks()`.
   - `test_frontend_api_base_url_resolution`: Verifies dynamic API base URL resolution to Staging, Production, and Local dev.
   - `test_frontend_api_base_url_display`: Verifies API base URL element under GitHub link in the brand header.
   - `test_frontend_compact_task_card_layout`: Verifies inline header actions, omission of description/last run/total results badge, and retention of expand toggle.
